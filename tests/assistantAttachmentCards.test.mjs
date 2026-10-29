@@ -94,6 +94,34 @@ for (const [name, browserType] of [['chromium', chromium], ['firefox', firefox],
   });
 }
 
+test('a saved reply with tool activity keeps its PDF card under the answer', async () => {
+  // Writer-made PDFs save a create_pdf tool event, which sends the reply
+  // through the multi-bubble history renderer.
+  const { page, close } = await openPage(chromium);
+  try {
+    const shape = await page.evaluate((pdf) => {
+      // Same shape as the saved Gitea reply; sessions.js adds _fromHistory.
+      window.__renderer.addMessage('assistant', 'The PDF covers the Gitea setup.', 'qwen3:8b', {
+        _fromHistory: true,
+        render_owner: 'streamed',
+        attachments: [pdf],
+        tool_events: [{ round: 1, tool: 'create_pdf', desc: 'create_pdf', command: 'create_pdf: Gitea setup', output: 'Created the PDF', exit_code: 0 }],
+      });
+      const answer = [...document.querySelectorAll('#chat-history .msg-ai')].pop();
+      return {
+        links: document.querySelectorAll('#chat-history a.attach-card').length,
+        inAnswer: !!answer?.querySelector('.body a.attach-card'),
+        answerText: answer?.querySelector('.body')?.textContent || '',
+      };
+    }, PDF);
+    assert.equal(shape.links, 1);
+    assert.ok(shape.inAnswer, 'the card should sit in the answer bubble');
+    assert.match(shape.answerText, /Gitea setup/);
+  } finally {
+    await close();
+  }
+});
+
 test('user attachment cards are unchanged (no download link)', async () => {
   const { page, close } = await openPage(chromium);
   try {
