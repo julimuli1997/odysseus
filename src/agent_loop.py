@@ -464,6 +464,22 @@ def _request_forbids_execution_retry(text: str) -> bool:
     )
 
 
+def _pdf_attachment_event(tool_type: str, result: dict) -> Optional[str]:
+    """SSE event carrying a successful create_pdf file onto the assistant reply.
+
+    The chat route saves it as message metadata, where the upload cleanup and
+    the download card both find it. Only canonical upload ids pass through.
+    """
+    from src.upload_handler import UPLOAD_ID_RE
+    if tool_type != "create_pdf" or not isinstance(result, dict) or result.get("exit_code") != 0:
+        return None
+    attachment = result.get("attachment")
+    if not isinstance(attachment, dict) or not UPLOAD_ID_RE.match(str(attachment.get("id") or "")):
+        return None
+    ref = {key: attachment.get(key) for key in ("id", "name", "mime", "size")}
+    return f'data: {json.dumps({"type": "attachments", "data": [ref]})}\n\n'
+
+
 def _contract_mutation_signature(block, contract):
     """Deduplicate an exact successful mutation for the rest of this turn.
 
@@ -34249,6 +34265,10 @@ async def stream_agent_loop(
                                 break
                     except Exception as _e:
                         logger.debug(f"skill requires_toolsets unlock skipped: {_e}")
+
+            _attachment_event = _pdf_attachment_event(block.tool_type, result)
+            if _attachment_event:
+                yield _attachment_event
 
             # Extract structured web sources from web_search tool output.
             # web_search returns {"output": ..., "exit_code": 0}; check "output"
