@@ -167,22 +167,22 @@ import { invalidateSettings } from './appConfig.js';
     if (box && box.contains(container)) {
       const all = Array.from(box.querySelectorAll('.msg, .agent-thread, .ai-msg-wrap, .round-holder'));
       const idx = all.findIndex((el) => el === container || el.contains(container));
-      if (idx > 0) {
-        for (let i = idx - 1; i >= 0; i--) {
-          if (all[i].classList && all[i].classList.contains('msg-user')) {
-            return all[i];
-          }
+      for (let i = idx - 1; i >= 0; i--) {
+        if (all[i].classList && all[i].classList.contains('msg-user')) {
+          return all[i];
         }
       }
     }
     return null;
   }
 
+  const _UPLOAD_ID_RE = /^[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9]+)?$/;
+
   // Resolve the image attached to the exact turn associated with container / action.
   // Never falls back to unrelated images from earlier conversation turns.
   function _attachedImageForTurn(container, action) {
     const explicitId = action && (action.imageId || action.image_id || action.fileId || action.file_id);
-    if (explicitId && typeof explicitId === 'string' && /^[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9]+)?$/.test(explicitId)) {
+    if (explicitId && typeof explicitId === 'string' && _UPLOAD_ID_RE.test(explicitId)) {
       return (API_BASE || '') + '/api/upload/' + explicitId;
     }
     const explicitUrl = action && (action.imageUrl || action.image_url);
@@ -196,7 +196,7 @@ import { invalidateSettings } from './appConfig.js';
     );
     for (let i = previews.length - 1; i >= 0; i--) {
       const fid = previews[i].dataset ? previews[i].dataset.fileId : null;
-      if (fid && /^[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9]+)?$/.test(fid)) {
+      if (fid && _UPLOAD_ID_RE.test(fid)) {
         return (API_BASE || '') + '/api/upload/' + fid;
       }
       const img = previews[i].querySelector('img');
@@ -211,10 +211,6 @@ import { invalidateSettings } from './appConfig.js';
     }
 
     return null;
-  }
-
-  function _currentAttachedImageUrl(container, action) {
-    return _attachedImageForTurn(container, action);
   }
 
   function _notifyError(msg) {
@@ -242,24 +238,24 @@ import { invalidateSettings } from './appConfig.js';
       btn.disabled = true;
       try {
         let imageUrl = _attachedImageForTurn(container, action);
+        // Every early return below re-enables the button via `finally`.
         if (!imageUrl) {
           _notifyError('No attached photo found for this conversation turn.');
-          btn.disabled = false;
           return;
         }
 
         if (!_isAuthorizedImageUrl(imageUrl)) {
           _notifyError('Unauthorized or invalid image reference.');
-          btn.disabled = false;
           return;
         }
 
-        if (imageUrl.trim().startsWith('data:') && !await _validateInlineImage(imageUrl)) {
+        const isInline = imageUrl.trim().startsWith('data:');
+        if (isInline && !await _validateInlineImage(imageUrl)) {
           _notifyError('Invalid or oversized image attachment.');
           return;
         }
         // Gallery references name an owner-scoped metadata resource, not image bytes.
-        if (!imageUrl.trim().startsWith('data:') && new URL(imageUrl, window.location.origin).pathname.startsWith('/api/gallery/')) {
+        if (!isInline && new URL(imageUrl, window.location.origin).pathname.startsWith('/api/gallery/')) {
           const response = await fetch(imageUrl, { credentials: 'same-origin' });
           if (!response.ok) { _notifyError('The gallery image is unavailable.'); return; }
           const image = await response.json();
@@ -283,12 +279,10 @@ import { invalidateSettings } from './appConfig.js';
               } else {
                 _notifyError('Could not verify image attachment authorization.');
               }
-              btn.disabled = false;
               return;
             }
           } catch (_) {
             _notifyError('Could not verify image attachment authorization.');
-            btn.disabled = false;
             return;
           }
         }

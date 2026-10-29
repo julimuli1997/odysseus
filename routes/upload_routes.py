@@ -159,6 +159,13 @@ def setup_upload_routes(upload_handler):
     def _path_inside_upload_dir(path: str) -> bool:
         return is_inside(_upload_root(), path)
 
+    def _confine_upload_path(root: str, path: str) -> str:
+        """Canonical form of ``path`` strictly under ``root``, else 403."""
+        try:
+            return confine(root, path, allow_root=False)
+        except (PathEscape, ValueError):
+            raise HTTPException(403, "Access denied")
+
     def _resolve_upload_path(file_id: str) -> str:
         safe_id = secure_filename(os.path.basename(file_id))
         if not safe_id:
@@ -167,10 +174,7 @@ def setup_upload_routes(upload_handler):
 
         direct = os.path.normpath(os.path.join(root, safe_id))
         if os.path.lexists(direct):
-            try:
-                canonical_direct = confine(root, direct, allow_root=False)
-            except (PathEscape, ValueError):
-                raise HTTPException(403, "Access denied")
+            canonical_direct = _confine_upload_path(root, direct)
             if os.path.isfile(canonical_direct):
                 return canonical_direct
             raise HTTPException(404, "File not found")
@@ -178,21 +182,15 @@ def setup_upload_routes(upload_handler):
         info = _load_upload_info(safe_id)
         stored_path = (info or {}).get("path")
         if stored_path:
-            try:
-                canonical_stored = confine(root, stored_path, allow_root=False)
-                if os.path.isfile(canonical_stored):
-                    return canonical_stored
-            except (PathEscape, ValueError):
-                raise HTTPException(403, "Access denied")
+            canonical_stored = _confine_upload_path(root, stored_path)
+            if os.path.isfile(canonical_stored):
+                return canonical_stored
 
         for walk_root, _dirs, files in os.walk(root, followlinks=False):
             if safe_id not in files:
                 continue
             cand = os.path.normpath(os.path.join(walk_root, safe_id))
-            try:
-                canonical_cand = confine(root, cand, allow_root=False)
-            except (PathEscape, ValueError):
-                raise HTTPException(403, "Access denied")
+            canonical_cand = _confine_upload_path(root, cand)
             if os.path.isfile(canonical_cand):
                 return canonical_cand
             raise HTTPException(404, "File not found")
@@ -474,11 +472,7 @@ def setup_upload_routes(upload_handler):
         file_owner = info.get("owner") if info else None
         _verify_upload_access(request, file_owner)
         upload_root = _upload_root()
-        path = _resolve_upload_path(safe_file_id)
-        try:
-            path = confine(upload_root, path, allow_root=False)
-        except (PathEscape, ValueError):
-            raise HTTPException(403, "Access denied")
+        path = _confine_upload_path(upload_root, _resolve_upload_path(safe_file_id))
         if not path.startswith(upload_root + os.sep) or not _path_inside_upload_dir(path):
             raise HTTPException(403, "Access denied")
         mime = (info or {}).get("mime") or _mt.guess_type(path)[0] or "application/octet-stream"
@@ -487,11 +481,9 @@ def setup_upload_routes(upload_handler):
         # Skip generation during HEAD probe to avoid loading/processing whole image.
         if thumb and mime.startswith("image/"):
             thumb_dir = os.path.normpath(os.path.join(upload_root, ".thumbs"))
-            thumb_path = os.path.normpath(os.path.join(thumb_dir, safe_file_id + ".jpg"))
-            try:
-                thumb_path = confine(upload_root, thumb_path, allow_root=False)
-            except (PathEscape, ValueError):
-                raise HTTPException(403, "Access denied")
+            thumb_path = _confine_upload_path(
+                upload_root, os.path.normpath(os.path.join(thumb_dir, safe_file_id + ".jpg"))
+            )
             if not thumb_path.startswith(thumb_dir + os.sep) or not _path_inside_upload_dir(thumb_path):
                 raise HTTPException(403, "Access denied")
             if request.method == "HEAD":
@@ -505,27 +497,26 @@ def setup_upload_routes(upload_handler):
                 response = Response(status_code=200, headers=UPLOAD_RESPONSE_HEADERS)
                 del response.headers["content-length"]
                 return response
-            else:
-                try:
-                    from PIL import Image, ImageOps
-                    os.makedirs(thumb_dir, exist_ok=True)
-                    if (not os.path.exists(thumb_path)
-                            or os.path.getmtime(thumb_path) < os.path.getmtime(path)):
-                        im = Image.open(path)
-                        # iPhone / camera JPEGs encode rotation in EXIF rather than
-                        # the pixel data. Browsers honour that on the original via
-                        # image-orientation:from-image, but PIL strips EXIF when it
-                        # saves the JPEG thumb, leaving the pixels sideways. Bake
-                        # the rotation into the pixels before thumbnailing.
-                        im = ImageOps.exif_transpose(im)
-                        im.thumbnail((320, 320))
-                        if im.mode not in ("RGB", "L"):
-                            im = im.convert("RGB")
-                        im.save(thumb_path, "JPEG", quality=80)
-                    return FileResponse(thumb_path, media_type="image/jpeg", headers=UPLOAD_RESPONSE_HEADERS)
-                except Exception as e:
-                    logger.warning(f"Thumbnail generation failed for {file_id}: {e}")
-                    # Fall through to the full image.
+            try:
+                from PIL import Image, ImageOps
+                os.makedirs(thumb_dir, exist_ok=True)
+                if (not os.path.exists(thumb_path)
+                        or os.path.getmtime(thumb_path) < os.path.getmtime(path)):
+                    im = Image.open(path)
+                    # iPhone / camera JPEGs encode rotation in EXIF rather than
+                    # the pixel data. Browsers honour that on the original via
+                    # image-orientation:from-image, but PIL strips EXIF when it
+                    # saves the JPEG thumb, leaving the pixels sideways. Bake
+                    # the rotation into the pixels before thumbnailing.
+                    im = ImageOps.exif_transpose(im)
+                    im.thumbnail((320, 320))
+                    if im.mode not in ("RGB", "L"):
+                        im = im.convert("RGB")
+                    im.save(thumb_path, "JPEG", quality=80)
+                return FileResponse(thumb_path, media_type="image/jpeg", headers=UPLOAD_RESPONSE_HEADERS)
+            except Exception as e:
+                logger.warning(f"Thumbnail generation failed for {file_id}: {e}")
+                # Fall through to the full image.
         return FileResponse(
             path,
             media_type=mime,
