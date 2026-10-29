@@ -501,18 +501,33 @@ _PDF_WRITER_PROMPT = (
 # along on topic words ("server" adds cookbook_admin, "bash" adds
 # shell_files) and must not take a plain PDF request away from the writer.
 _PDF_DATA_FAMILIES = frozenset({
-    "calendar", "notes", "tasks", "skills", "memory", "documents", "email", "contacts",
-    "sessions", "research", "search_browser", "transcription", "media_inspection", "ocr",
+    "documents", "research", "search_browser", "transcription", "media_inspection", "ocr",
 })
+# Personal families are also tagged by plain topic words ("network tasks a
+# switch handles", "an email template"), so they only count when the request
+# points at the user's own data ("my notes", "meine Aufgaben").
+_PDF_PERSONAL_FAMILIES = frozenset({
+    "calendar", "notes", "tasks", "skills", "memory", "email", "contacts", "sessions",
+})
+_PERSONAL_DATA_REFERENCE = re.compile(
+    r"\b(?:my|our|mine|meine?[nmrs]?|unsere?[nmrs]?)\s+(?:\w+\s+){0,2}"
+    r"(?:notes?|tasks?|to-?dos?|e-?mails?|mails?|inbox|calendar|events?|appointments?|meetings?|"
+    r"contacts?|memor(?:y|ies)|chats?|sessions?|conversations?|skills?|"
+    r"notizen|aufgaben|termine?|kalender|kontakte?|nachrichten|posteingang)\b",
+    re.IGNORECASE,
+)
 _PDF_WRITER_HISTORY_MESSAGES = 12
 
 
 def _uses_pdf_writer(turn_contract, *, active_document, exact_approval, plan_mode,
-                     owner, session_id) -> bool:
+                     owner, session_id, request_text: str = "") -> bool:
     capabilities = frozenset(getattr(turn_contract, "capabilities", None) or ())
+    needs_user_data = bool(capabilities & _PDF_DATA_FAMILIES) or bool(
+        capabilities & _PDF_PERSONAL_FAMILIES and _PERSONAL_DATA_REFERENCE.search(request_text or "")
+    )
     return bool(
         "pdf_export" in capabilities
-        and not capabilities & _PDF_DATA_FAMILIES
+        and not needs_user_data
         and not active_document
         and exact_approval is None
         and not plan_mode
@@ -21632,7 +21647,8 @@ async def stream_agent_loop(
             return
 
     if _uses_pdf_writer(turn_contract, active_document=active_document, exact_approval=exact_approval,
-                        plan_mode=plan_mode, owner=owner, session_id=session_id):
+                        plan_mode=plan_mode, owner=owner, session_id=session_id,
+                        request_text=_extract_last_user_message(messages)):
         async for chunk in _stream_pdf_writer_turn(
             endpoint_url=endpoint_url, model=model, headers=headers, fallbacks=fallbacks,
             messages=messages, temperature=temperature, max_tokens=max_tokens,
