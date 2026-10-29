@@ -77,6 +77,87 @@ def test_empty_content_uses_the_previous_assistant_answer(env):
     assert "Boot from USB" in text and "bootrec /rebuildbcd" in text
 
 
+DATE_ECHO = (
+    "**Today is Thursday, October 29, 2026 (2026-10-29)**  \n"
+    "- **User local time:** 9:02 PM (Europe/Berlin, UTC+01:00)  \n"
+    "- **Current UTC time:** 20:02"
+)
+RAW_DATE_BLOCK = (
+    "## Current date and time\n"
+    "Today is Thursday, October 29, 2026 (2026-10-29). User local time is 8:46 PM "
+    "(Europe/Berlin, UTC+01:00); current UTC time is 19:46.\n"
+    "Tomorrow is Friday, October 30, 2026, in the user's local timezone."
+)
+
+
+@pytest.mark.parametrize("echo", [DATE_ECHO, RAW_DATE_BLOCK])
+def test_content_that_only_restates_the_date_context_uses_the_previous_answer(env, echo):
+    result = _run(json.dumps({
+        "title": "Current Date and Time Context", "filename": "current_context.pdf",
+        "content_markdown": echo,
+    }))
+
+    assert result["exit_code"] == 0
+    assert result["attachment"]["name"] == "Steps.pdf"
+    _, text = _pdf_text(env, result["attachment"])
+    assert "bootrec /rebuildbcd" in text
+    assert "UTC" not in text
+
+
+def test_date_context_inside_real_content_is_removed(env):
+    result = _run(json.dumps({
+        "title": "Boot fix",
+        "content_markdown": RAW_DATE_BLOCK + "\n\n## Steps\n\n1. Boot from the USB stick and open a prompt.",
+    }))
+
+    assert result["exit_code"] == 0
+    _, text = _pdf_text(env, result["attachment"])
+    assert "Boot from the USB stick" in text
+    assert "UTC" not in text and "Tomorrow is" not in text
+
+
+def test_previous_answer_skips_the_approval_prompt_of_the_current_turn(env):
+    env.history.append(_msg("assistant", "Allow this task to continue?"))
+
+    result = _run(json.dumps({"title": "Boot fix", "content_markdown": ""}))
+
+    assert result["exit_code"] == 0
+    _, text = _pdf_text(env, result["attachment"])
+    assert "bootrec /rebuildbcd" in text
+
+
+def test_no_pdf_when_the_reply_before_the_request_is_not_an_answer(env):
+    """The 2026-10-29 21:02 session: a refusal, then "convert this now", then approval."""
+    env.history[:] = [
+        _msg("user", "can you convert that into pdf"),
+        _msg("assistant", "Once you share the content, I'll guide you through exporting it as a PDF."),
+        _msg("user", "make an explanation about how to install a game and turn it into a pdf"),
+        _msg("assistant", "I can’t perform this request with the currently permitted tools "
+                          "(unavailable: capability:pdf_export). I haven’t substituted another tool."),
+        _msg("user", "can you convert this now into a pdf"),
+        _msg("assistant", "Allow this task to continue?"),
+    ]
+
+    result = _run(json.dumps({"title": "Current Date and Time Context", "content_markdown": DATE_ECHO}))
+
+    assert result["exit_code"] == 1
+    assert "write the content" in result["error"].lower()
+    assert env.handler._load_upload_index() == {}
+
+
+def test_a_question_reply_is_not_used_as_pdf_content(env):
+    env.history[:] = [
+        _msg("user", "make a pdf"),
+        _msg("assistant", "Sure, which text should go in the PDF?"),
+        _msg("user", "the one from before, as a pdf"),
+    ]
+
+    result = _run(json.dumps({"title": "T", "content_markdown": ""}))
+
+    assert result["exit_code"] == 1
+    assert env.handler._load_upload_index() == {}
+
+
 def test_plain_text_content_is_treated_as_markdown(env):
     result = _run("# Shopping\n\n- milk\n- bread")
 
