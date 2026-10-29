@@ -3525,8 +3525,11 @@ def test_agent_fallback_request_uses_candidate_context_budget(
         )
     )
 
+    # A route build reads its window for tool-surface selection, then for trimming.
     assert [(url, model) for url, model, _fallback in context_lookups] == [
         (primary[0], primary[1]),
+        (primary[0], primary[1]),
+        (backup[0], backup[1]),
         (backup[0], backup[1]),
         (backup[0], backup[1]),
     ]
