@@ -70,21 +70,71 @@ def test_fallback_title_comes_from_the_first_heading_or_sentence():
     assert len(_pdf_fallback_title("word " * 60)) <= 80
 
 
-def test_fallback_runs_only_for_untainted_pdf_turns_without_a_created_pdf():
+def test_fallback_runs_only_for_pdf_turns_without_a_created_pdf():
     from src.agent_loop import _should_run_pdf_fallback
     from types import SimpleNamespace
 
     pdf_turn = SimpleNamespace(capabilities=frozenset({"pdf_export"}))
     other_turn = SimpleNamespace(capabilities=frozenset({"search_browser"}))
-    ok = dict(pdf_attached=False, tainted=False, awaiting_user=False, owner="o", session_id="s")
+    ok = dict(pdf_attached=False, awaiting_user=False, owner="o", session_id="s")
 
     assert _should_run_pdf_fallback(pdf_turn, **ok)
     assert not _should_run_pdf_fallback(other_turn, **ok)
     assert not _should_run_pdf_fallback(None, **ok)
     assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, pdf_attached=True))
-    assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, tainted=True))
     assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, awaiting_user=True))
     assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, session_id=None))
+
+
+def test_prose_reply_with_injected_memory_still_attaches_the_pdf(monkeypatch):
+    """Memory and runtime context mark nearly every real turn untrusted; the fallback must still run."""
+    import asyncio
+
+    import src.agent_loop as agent_loop
+    import src.agent_tools.pdf_tools as pdf_tools
+    from src.prompt_security import untrusted_context_message
+    from src.tool_policy import build_effective_tool_policy
+    from src.tool_schemas import FUNCTION_TOOL_SCHEMAS
+    from src.turn_contract import requested_capabilities, resolve_turn_contract
+
+    message = "can you make that into a pdf"
+    history = [
+        {"role": "user", "content": "how do I fix boot error 0xc0000001?"},
+        {"role": "assistant", "content": LONG_ANSWER},
+    ]
+    policy = build_effective_tool_policy(disabled_tools=set(), last_user_message=message)
+    contract = resolve_turn_contract(
+        capabilities=requested_capabilities(message, history), schemas=FUNCTION_TOOL_SCHEMAS,
+        policy=policy, message=message, history=history,
+    )
+
+    async def prose_only(_candidates, _messages, **_kwargs):
+        yield f'data: {json.dumps({"delta": LONG_ANSWER})}\n\n'
+        yield "data: [DONE]\n\n"
+
+    created = []
+
+    async def fake_create(self, content, ctx):
+        created.append((json.loads(content), ctx))
+        return {"output": "ok", "exit_code": 0, "attachment": ATTACHMENT}
+
+    monkeypatch.setattr(agent_loop, "get_mcp_manager", lambda: None, raising=False)
+    monkeypatch.setattr(agent_loop, "stream_llm_with_fallback", prose_only, raising=False)
+    monkeypatch.setattr(pdf_tools.CreatePdfTool, "execute", fake_create)
+
+    async def run():
+        return [chunk async for chunk in agent_loop.stream_agent_loop(
+            "http://localhost:11434/v1/chat/completions", "qwen2.5:latest",
+            [untrusted_context_message("saved memory: pinned context", "Prefers short answers.")]
+            + history + [{"role": "user", "content": message}],
+            session_id="s1", owner="o", turn_contract=contract, tool_policy=policy,
+        )]
+
+    events = [_event_payload(c) for c in asyncio.run(run()) if c.startswith("data: {")]
+
+    assert {"type": "attachments", "data": [ATTACHMENT]} in events
+    assert created[0][0]["title"] == "Fix Windows 0xc0000001"
+    assert created[0][1] == {"session_id": "s1", "owner": "o"}
 
 
 def test_stream_agent_loop_wires_the_fallback_at_completion():

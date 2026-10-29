@@ -80,9 +80,13 @@ and offers it as a download that the user saves to their machine.
    native tool schemas (opt-in per endpoint), and qwen2.5 rarely writes a
    textual tool call. If a `pdf_export` turn ends without a successful
    `create_pdf`, the agent loop creates the PDF itself: from the reply when it
-   is substantive, otherwise from the previous answer. It never runs when
-   untrusted context is present (that case needs exact approval) or while the
-   turn awaits the user.
+   is substantive, otherwise from the previous answer. It doesn't run while
+   the turn awaits the user. Untrusted context doesn't block it: nearly every
+   real turn carries some (saved memory, retrieved documents, the runtime
+   context block), and the fallback only renders the visible reply into the
+   owner's own uploads. A skipped fallback logs `[pdf-fallback] skipped`.
+   (Deviation, 2026-10-29: the first version required an untainted turn and
+   so never ran in practice.)
 6. **Safety:** model-provided Markdown is untrusted. Escape or strip raw HTML
    before templating. The renderer loads no network resources and runs no
    scripts. Size limits apply to both input and output.
