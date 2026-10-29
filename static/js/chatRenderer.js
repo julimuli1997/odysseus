@@ -3462,6 +3462,12 @@ export function addMessage(role, content, modelName, metadata) {
         }
       }
 
+      // Files the agent produced (create_pdf) go under the final answer bubble.
+      const answerBody = lastMsgAi?.querySelector('.body');
+      if (metadata.attachments?.length && answerBody) {
+        answerBody.appendChild(buildAttachCards(metadata.attachments, { download: true }));
+      }
+
       const firstWrap = lastMsgAi || lastWrap;
       if (firstWrap && firstWrap.classList.contains('msg-ai')) {
         if (metadata?.memories_used?.length) firstWrap._memoriesUsed = metadata.memories_used;
