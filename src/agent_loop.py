@@ -534,33 +534,29 @@ def _pdf_writer_messages(messages: List[Dict]) -> List[Dict]:
     return [{"role": "system", "content": _PDF_WRITER_PROMPT}] + conversation[-_PDF_WRITER_HISTORY_MESSAGES:]
 
 
-async def _stream_pdf_writer_turn(*, endpoint_url, model, headers, fallbacks, messages,
-                                  temperature, max_tokens, session_id, owner, workload,
-                                  thinking_mode, reasoning_effort, fallback_statuses,
-                                  fallback_on_empty, route_descriptors):
-    """Answer a PDF request with the writer call, then attach the reply as the PDF."""
-    started = time.time()
-    writer_messages = _pdf_writer_messages(messages)
-    reply = ""
-    actual_model = model
-    input_tokens = output_tokens = 0
-    async for chunk in stream_llm_with_fallback(
-        [(endpoint_url, model, headers)] + list(fallbacks or []),
-        writer_messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        prompt_type=None,
-        tools=None,
-        timeout=int(get_setting("agent_stream_timeout_seconds", 300) or 300),
-        session_id=session_id,
-        workload=workload,
-        thinking_mode=thinking_mode,
-        reasoning_effort=reasoning_effort,
-        fallback_statuses=fallback_statuses,
-        fallback_on_empty=fallback_on_empty,
-        candidate_route_descriptors=route_descriptors,
-    ):
+# The chat reply after the PDF is made: the model says what it put in the file.
+_PDF_EXPLAIN_PROMPT = (
+    "You just wrote a document for the user, and the app saved it as the PDF file "
+    "\"{name}\" and attached it to your reply. Reply to the user's request by telling them, "
+    "in their language and in two to four sentences, what you put into the PDF: its main "
+    "parts or points. Don't repeat the document, don't explain how PDFs work, and don't ask "
+    "a question.\n\nThe document you wrote:\n<<<\n{document}\n>>>"
+)
+_PDF_EXPLAIN_DOCUMENT_CHARS = 6000
+
+
+async def _stream_llm_reply(state: dict, candidates, llm_messages, *, forward_text: bool, **llm_kwargs):
+    """Stream one tool-free call, collecting its text into ``state["text"]``.
+
+    Usage is summed into ``state``. Visible text is passed on only when
+    ``forward_text``; thinking and routing events always are. A provider
+    error is passed on and sets ``state["error"]``.
+    """
+    state["text"] = ""
+    async for chunk in stream_llm_with_fallback(candidates, llm_messages, prompt_type=None, tools=None,
+                                                **llm_kwargs):
         if chunk.startswith("event: error"):
+            state["error"] = True
             yield chunk
             return
         if not chunk.startswith("data: ") or chunk.startswith("data: [DONE]"):
@@ -571,47 +567,112 @@ async def _stream_pdf_writer_turn(*, endpoint_url, model, headers, fallbacks, me
             continue
         if data.get("type") == "usage":
             usage = data.get("data") or {}
-            actual_model = usage.get("model") or actual_model
-            input_tokens += int(usage.get("input_tokens") or 0)
-            output_tokens += int(usage.get("output_tokens") or 0)
+            state["model"] = usage.get("model") or state.get("model")
+            state["input_tokens"] = state.get("input_tokens", 0) + int(usage.get("input_tokens") or 0)
+            state["output_tokens"] = state.get("output_tokens", 0) + int(usage.get("output_tokens") or 0)
             continue
         if "delta" in data and not data.get("thinking"):
-            reply += data.get("delta") or ""
+            state["text"] += data.get("delta") or ""
+            if not forward_text:
+                continue
         yield chunk
 
-    document = _pdf_document_from_reply(reply)
-    attached = False
+
+def _pdf_tool_event(kind: str, title: str, **fields) -> str:
+    command = f"create_pdf: {title}" if title else "create_pdf"
+    return f'data: {json.dumps({"type": kind, "tool": "create_pdf", "command": command, "full_command": command, "round": 1, **fields})}\n\n'
+
+
+async def _stream_pdf_writer_turn(*, endpoint_url, model, headers, fallbacks, messages,
+                                  temperature, max_tokens, session_id, owner, workload,
+                                  thinking_mode, reasoning_effort, fallback_statuses,
+                                  fallback_on_empty, route_descriptors):
+    """Write the requested document into a PDF, then explain it in the chat.
+
+    The document goes only into the PDF. The chat reply is a second short
+    call in which the model tells the user what it put there.
+    """
+    started = time.time()
+    candidates = [(endpoint_url, model, headers)] + list(fallbacks or [])
+    llm_kwargs = dict(
+        temperature=temperature,
+        timeout=int(get_setting("agent_stream_timeout_seconds", 300) or 300),
+        session_id=session_id, workload=workload,
+        thinking_mode=thinking_mode, reasoning_effort=reasoning_effort,
+        fallback_statuses=fallback_statuses, fallback_on_empty=fallback_on_empty,
+        candidate_route_descriptors=route_descriptors,
+    )
+    state = {"model": model}
+    tool_events = []
+
+    yield _pdf_tool_event("tool_start", "")
+    writer_messages = _pdf_writer_messages(messages)
+    async for chunk in _stream_llm_reply(state, candidates, writer_messages, forward_text=False,
+                                         max_tokens=max_tokens, **llm_kwargs):
+        yield chunk
+    if state.get("error"):
+        return
+    draft = state["text"]
+    document = _pdf_document_from_reply(draft)
+
     if document is None:
+        # The writer asked something back ("which text?"); that is the reply.
         logger.info("[pdf-writer] no PDF created: the reply is a question, not a document")
+        output = "No PDF yet: asked the user a question first."
+        yield _pdf_tool_event("tool_output", "", output=output, exit_code=0)
+        tool_events.append({"round": 1, "tool": "create_pdf", "desc": "create_pdf", "command": "create_pdf",
+                            "output": output, "exit_code": 0})
+        yield f'data: {json.dumps({"delta": _THINK_BLOCK_RE.sub("", draft).strip()})}\n\n'
     else:
+        title, body = document
         from src.agent_tools.pdf_tools import CreatePdfTool
         result = await CreatePdfTool().execute(
-            json.dumps({"title": document[0], "content_markdown": document[1]}),
+            json.dumps({"title": title, "content_markdown": body}),
             {"session_id": session_id, "owner": owner},
         )
         event = _pdf_attachment_event("create_pdf", result)
-        if event:
-            attached = True
-            name = result["attachment"]["name"]
-            logger.info("[pdf-writer] attached the reply as %s", name)
-            yield event
-            yield f'data: {json.dumps({"delta": f"{chr(10)}{chr(10)}*PDF attached: {name}*"})}\n\n'
-        else:
+        output = result.get("output") or result.get("error") or ""
+        yield _pdf_tool_event("tool_output", title, output=output, exit_code=result.get("exit_code"))
+        tool_events.append({"round": 1, "tool": "create_pdf", "desc": "create_pdf",
+                            "command": f"create_pdf: {title}", "output": output,
+                            "exit_code": result.get("exit_code")})
+        if not event:
             logger.info("[pdf-writer] no PDF created: %s", result.get("error"))
+            yield f'data: {json.dumps({"delta": "I wrote the document, but the PDF could not be created: " + str(result.get("error") or "unknown error")})}\n\n'
+        else:
+            name = result["attachment"]["name"]
+            logger.info("[pdf-writer] attached %s", name)
+            yield event
+            explain_messages = [
+                {"role": "system", "content": _PDF_EXPLAIN_PROMPT.format(
+                    name=name, document=body[:_PDF_EXPLAIN_DOCUMENT_CHARS])},
+                {"role": "user", "content": _extract_last_user_message(messages)},
+            ]
+            explain_state = {"model": state.get("model")}
+            async for chunk in _stream_llm_reply(explain_state, candidates, explain_messages,
+                                                 forward_text=True, max_tokens=max_tokens, **llm_kwargs):
+                yield chunk
+            for key in ("input_tokens", "output_tokens"):
+                state[key] = state.get(key, 0) + explain_state.get(key, 0)
+            if explain_state.get("error"):
+                return
+            if not _THINK_BLOCK_RE.sub("", explain_state["text"]).strip():
+                yield f'data: {json.dumps({"delta": f"I put “{title}” into the PDF {name}."})}\n\n'
 
     duration = round(time.time() - started, 2)
+    has_usage = bool(state.get("input_tokens") or state.get("output_tokens"))
     metrics = {
-        "model": actual_model,
+        "model": state.get("model") or model,
         "requested_model": model,
-        "input_tokens": input_tokens or estimate_tokens(writer_messages),
-        "output_tokens": output_tokens or max(len(reply) // 4, 1),
-        "usage_source": "real" if input_tokens or output_tokens else "estimated",
+        "input_tokens": state.get("input_tokens") or estimate_tokens(writer_messages),
+        "output_tokens": state.get("output_tokens") or max(len(draft) // 4, 1),
+        "usage_source": "real" if has_usage else "estimated",
         "total_time": duration,
         "response_time": duration,
         "agent_rounds": 0,
-        "tool_calls": 0,
+        "tool_calls": 1,
+        "tool_events": tool_events,
         "pdf_writer": True,
-        "pdf_attached": attached,
     }
     yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
     yield "data: [DONE]\n\n"

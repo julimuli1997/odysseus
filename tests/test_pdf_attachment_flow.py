@@ -146,10 +146,12 @@ def test_prose_reply_with_injected_memory_still_attaches_the_pdf(monkeypatch):
     )
 
     seen_messages = []
+    explanation = "I put the boot repair steps into the PDF."
 
     async def prose_only(_candidates, messages, **_kwargs):
         seen_messages.append(messages)
-        yield f'data: {json.dumps({"delta": LONG_ANSWER})}\n\n'
+        writing = messages[0]["content"] == agent_loop._PDF_WRITER_PROMPT
+        yield f'data: {json.dumps({"delta": LONG_ANSWER if writing else explanation})}\n\n'
         yield "data: [DONE]\n\n"
 
     created = []
@@ -180,6 +182,17 @@ def test_prose_reply_with_injected_memory_still_attaches_the_pdf(monkeypatch):
     assert writer_messages[0] == {"role": "system", "content": agent_loop._PDF_WRITER_PROMPT}
     assert "Prefers short answers" not in json.dumps(writer_messages)
     assert writer_messages[-1] == {"role": "user", "content": message}
+
+    # The document goes only into the PDF; the chat gets the model's explanation.
+    chat_text = "".join(e["delta"] for e in events if "delta" in e and not e.get("thinking"))
+    assert chat_text == explanation
+    explain_messages = seen_messages[1]
+    assert ATTACHMENT["name"] in explain_messages[0]["content"]
+    assert "1. Boot from the USB stick" in explain_messages[0]["content"]
+    assert explain_messages[-1] == {"role": "user", "content": message}
+    assert [e["type"] for e in events if e.get("tool") == "create_pdf"] == ["tool_start", "tool_output"]
+    metrics = next(e["data"] for e in events if e.get("type") == "metrics")
+    assert metrics["tool_events"][0]["tool"] == "create_pdf"
 
 
 def test_no_pdf_when_the_reply_only_asks_back(monkeypatch):
@@ -218,8 +231,9 @@ def test_no_pdf_when_the_reply_only_asks_back(monkeypatch):
             session_id="s1", owner="o", turn_contract=contract, tool_policy=policy,
         )]
 
-    asyncio.run(run())
+    events = [_event_payload(c) for c in asyncio.run(run()) if c.startswith("data: {")]
     assert created == []
+    assert "".join(e.get("delta", "") for e in events) == "Which text should go in the PDF?"
 
 
 def test_stream_agent_loop_wires_the_fallback_at_completion():
