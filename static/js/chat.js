@@ -8,7 +8,7 @@
 import Storage from './storage.js';
 import uiModule from './ui.js?v=20260916largetoolscroll1';
 import sessionModule from './sessions.js';
-import chatRenderer, { renderToolIcon } from './chatRenderer.js?v=20260914metricssummary1';
+import chatRenderer, { renderToolIcon } from './chatRenderer.js?v=20261029pdfattach3';
 import chatStream from './chatStream.js?v=20261026devsync1';
 import { addAITTSButton } from './tts-ai.js';
 import markdownModule from './markdown.js';
@@ -167,22 +167,22 @@ import { invalidateSettings } from './appConfig.js';
     if (box && box.contains(container)) {
       const all = Array.from(box.querySelectorAll('.msg, .agent-thread, .ai-msg-wrap, .round-holder'));
       const idx = all.findIndex((el) => el === container || el.contains(container));
-      if (idx > 0) {
-        for (let i = idx - 1; i >= 0; i--) {
-          if (all[i].classList && all[i].classList.contains('msg-user')) {
-            return all[i];
-          }
+      for (let i = idx - 1; i >= 0; i--) {
+        if (all[i].classList && all[i].classList.contains('msg-user')) {
+          return all[i];
         }
       }
     }
     return null;
   }
 
+  const _UPLOAD_ID_RE = /^[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9]+)?$/;
+
   // Resolve the image attached to the exact turn associated with container / action.
   // Never falls back to unrelated images from earlier conversation turns.
   function _attachedImageForTurn(container, action) {
     const explicitId = action && (action.imageId || action.image_id || action.fileId || action.file_id);
-    if (explicitId && typeof explicitId === 'string' && /^[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9]+)?$/.test(explicitId)) {
+    if (explicitId && typeof explicitId === 'string' && _UPLOAD_ID_RE.test(explicitId)) {
       return (API_BASE || '') + '/api/upload/' + explicitId;
     }
     const explicitUrl = action && (action.imageUrl || action.image_url);
@@ -196,7 +196,7 @@ import { invalidateSettings } from './appConfig.js';
     );
     for (let i = previews.length - 1; i >= 0; i--) {
       const fid = previews[i].dataset ? previews[i].dataset.fileId : null;
-      if (fid && /^[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9]+)?$/.test(fid)) {
+      if (fid && _UPLOAD_ID_RE.test(fid)) {
         return (API_BASE || '') + '/api/upload/' + fid;
       }
       const img = previews[i].querySelector('img');
@@ -211,10 +211,6 @@ import { invalidateSettings } from './appConfig.js';
     }
 
     return null;
-  }
-
-  function _currentAttachedImageUrl(container, action) {
-    return _attachedImageForTurn(container, action);
   }
 
   function _notifyError(msg) {
@@ -242,24 +238,24 @@ import { invalidateSettings } from './appConfig.js';
       btn.disabled = true;
       try {
         let imageUrl = _attachedImageForTurn(container, action);
+        // Every early return below re-enables the button via `finally`.
         if (!imageUrl) {
           _notifyError('No attached photo found for this conversation turn.');
-          btn.disabled = false;
           return;
         }
 
         if (!_isAuthorizedImageUrl(imageUrl)) {
           _notifyError('Unauthorized or invalid image reference.');
-          btn.disabled = false;
           return;
         }
 
-        if (imageUrl.trim().startsWith('data:') && !await _validateInlineImage(imageUrl)) {
+        const isInline = imageUrl.trim().startsWith('data:');
+        if (isInline && !await _validateInlineImage(imageUrl)) {
           _notifyError('Invalid or oversized image attachment.');
           return;
         }
         // Gallery references name an owner-scoped metadata resource, not image bytes.
-        if (!imageUrl.trim().startsWith('data:') && new URL(imageUrl, window.location.origin).pathname.startsWith('/api/gallery/')) {
+        if (!isInline && new URL(imageUrl, window.location.origin).pathname.startsWith('/api/gallery/')) {
           const response = await fetch(imageUrl, { credentials: 'same-origin' });
           if (!response.ok) { _notifyError('The gallery image is unavailable.'); return; }
           const image = await response.json();
@@ -283,12 +279,10 @@ import { invalidateSettings } from './appConfig.js';
               } else {
                 _notifyError('Could not verify image attachment authorization.');
               }
-              btn.disabled = false;
               return;
             }
           } catch (_) {
             _notifyError('Could not verify image attachment authorization.');
-            btn.disabled = false;
             return;
           }
         }
@@ -3261,7 +3255,7 @@ import { invalidateSettings } from './appConfig.js';
           + markdownModule.processWithThinking(markdownModule.squashOutsideCode(markdownModule.normalizeThinkingMarkup(_streamDisplayText(text, { final: _docFenceOpened }))))
           + (_findingsData ? chatRenderer.buildFindingsBox(_findingsData) : '');
       }
-      function _renderTerminalAnswer(text, messageId = '', renderOwner, replacementScope) {
+      function _renderTerminalAnswer(text, messageId = '', renderOwner, replacementScope, attachments = holder?._attachments) {
         if (renderOwner && !_turnRendering.accepts({ type: 'final_response', render_owner: renderOwner, replacement_scope: replacementScope })) return false;
         _ensureVisibleRoundForDelta();
         const body = roundHolder?.querySelector('.body');
@@ -3270,6 +3264,10 @@ import { invalidateSettings } from './appConfig.js';
           body, html: _terminalAnswerHtml(text, body), raw: text, messageId, render_owner: renderOwner, replacement_scope: replacementScope,
         });
         if (result.changed && window.hljs) body.querySelectorAll('pre code').forEach(block => window.hljs.highlightElement(block));
+        // Re-rendering replaces the body, so put this turn's file cards (create_pdf) back.
+        if (attachments?.length && !body.querySelector('a.attach-card')) {
+          body.appendChild(chatRenderer.buildAttachCards(attachments, { download: true }));
+        }
         if (result.accepted) _turnRendering.settle();
         return result.accepted;
       }
@@ -3298,7 +3296,8 @@ import { invalidateSettings } from './appConfig.js';
           }
           if (!saved || !String(saved.content || '').trim()) return false;
           const scrollSnapshot = uiModule.captureHistoryScroll?.();
-          const rendered = _renderTerminalAnswer(saved.content, _savedAssistantMessageId, saved.metadata?.render_owner, saved.metadata?.replacement_scope);
+          const rendered = _renderTerminalAnswer(saved.content, _savedAssistantMessageId, saved.metadata?.render_owner, saved.metadata?.replacement_scope,
+            saved.metadata?.attachments || holder?._attachments);
           uiModule.restoreHistoryScroll?.(scrollSnapshot);
           if (rendered) _streamTurnMarker.remove();
           return rendered;
@@ -4726,6 +4725,12 @@ import { invalidateSettings } from './appConfig.js';
                   _sourcesData = json.data; _sourcesType = 'web';
                   _sourcesHtml = _buildSourcesBox(json.data, 'web');
                 }
+              } else if (json.type === 'attachments') {
+                // Files the agent produced (create_pdf). Rendered once the
+                // stream ends; background streams re-render from saved metadata.
+                if (!_isBg && Array.isArray(json.data)) {
+                  holder._attachments = (holder._attachments || []).concat(json.data);
+                }
               } else if (json.type === 'workspace_rejected') {
                 // Server refused to bind the posted workspace (deleted folder,
                 // file path, sensitive dir, filesystem root). Clear the stored
@@ -5783,6 +5788,12 @@ import { invalidateSettings } from './appConfig.js';
         const footerTarget = (roundHolder && roundHolder !== holder && roundHolder.style.display !== 'none') ? roundHolder : holder;
         if (!footerTarget.querySelector('.msg-footer')) {
           footerTarget.appendChild(createMsgFooter(footerTarget, { animate: true }));
+        }
+        // Download cards for files the agent produced this turn (create_pdf).
+        const _attachBody = footerTarget.querySelector('.body');
+        if (holder._attachments?.length && !_isBgFinal && _attachBody
+            && !_attachBody.querySelector('a.attach-card')) {
+          _attachBody.appendChild(chatRenderer.buildAttachCards(holder._attachments, { download: true }));
         }
         if (_generatedImagesForTurn.length && !_isBgFinal) {
           _generatedImagesForTurn.forEach(imgData => _appendGeneratedImageBubble(imgData, streamSessionId));

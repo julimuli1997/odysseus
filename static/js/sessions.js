@@ -3,7 +3,7 @@
 
 import Storage from './storage.js';
 import uiModule, { autoResize, styledPrompt } from './ui.js?v=20260916largetoolscroll1';
-import chatRenderer from './chatRenderer.js?v=20260914metricssummary1';
+import chatRenderer from './chatRenderer.js?v=20261029pdfattach3';
 import { providerLogo } from './providers.js';
 import { initModelPicker, updateModelPicker } from './modelPicker.js?v=20260909routeidentity1';
 import themeModule from './theme.js?v=20260911organsrain1';
@@ -79,45 +79,36 @@ function _buildCopyChatHeader(info) {
 }
 // === end copy-chat header ===
 
+// Gathers best-effort values; _buildCopyChatHeader turns any missing one into 'unknown'.
 async function _copyChatHeaderFor(s) {
-  let version = 'unknown';
-  let build = 'unknown';
-  let sourceCommit = 'unknown';
+  let v = null;
   try {
-    const res = await fetch(`${API_BASE}/api/version`);
-    const v = await res.json();
-    if (v && typeof v === 'object') {
-      version = v.version || 'unknown';
-      build = v.build || 'unknown';
-      sourceCommit = v.source_commit || 'unknown';
-    }
+    v = await (await fetch(`${API_BASE}/api/version`)).json();
   } catch (_) {}
 
-  let toolSurface = 'unknown';
+  let toolSurface;
   try {
     const res = await fetch(`${API_BASE}/api/model-endpoints`);
     if (res.ok) {
       const eps = await res.json();
-      const list = Array.isArray(eps) ? eps : [];
-      const model = (s && s.model) || '';
-      const ep = list.find((x) => x && (
-        (s && s.endpoint_id != null && x.id === s.endpoint_id) ||
-        (s && s.endpoint_url && x.base_url === s.endpoint_url)
+      const ep = (Array.isArray(eps) ? eps : []).find((x) => x && (
+        (s?.endpoint_id != null && x.id === s.endpoint_id) ||
+        (s?.endpoint_url && x.base_url === s.endpoint_url)
       ));
-      if (ep && ep.model_tool_modes && model) {
-        toolSurface = _toolSurfaceLabel(ep.model_tool_modes[model]);
+      if (ep?.model_tool_modes && s?.model) {
+        toolSurface = _toolSurfaceLabel(ep.model_tool_modes[s.model]);
       }
     }
   } catch (_) {}
 
   return _buildCopyChatHeader({
-    version,
-    build,
-    sourceCommit,
-    model: (s && s.model) || undefined,
-    endpointUrl: (s && s.endpoint_url) || undefined,
+    version: v?.version,
+    build: v?.build,
+    sourceCommit: v?.source_commit,
+    model: s?.model,
+    endpointUrl: s?.endpoint_url,
     toolSurface,
-    sessionId: (s && s.id) || undefined,
+    sessionId: s?.id,
     copiedAt: new Date(),
   });
 }

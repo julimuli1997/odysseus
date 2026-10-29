@@ -41,6 +41,7 @@ FAMILY_TOOLS = {
     "transcription": frozenset({"transcribe_media"}),
     "media_inspection": frozenset({"inspect_media"}),
     "ocr": frozenset({"extract_text"}),
+    "pdf_export": frozenset({"create_pdf"}),
 }
 
 # Retrieval is selection, not authorization. A normal agent turn must retain
@@ -354,6 +355,42 @@ _EXPLICIT_INLINE_SHELL_COMMAND = re.compile(
     r"[^\n]{0,80}?(?::|`)\s*(?:printf|echo|pwd|whoami|uname|date|true|false|test)\b",
     re.I,
 )
+# Explicit "go find this out" phrasing, English and German. Only consulted when
+# no other family matched, so "find my notes" or "look for files" keep their
+# own targets; without it these requests offered web_search and then denied it.
+_EXPLICIT_WEB_LOOKUP = re.compile(
+    r"\b(?:look\s+(?:up|for|into)|search\s+(?:for|up)|google|find\s+out|"
+    r"find\s+(?:me\s+)?(?:\w+\s+)?(?:info(?:rmation)?|details|facts|fix(?:es)?|"
+    r"solutions?|articles?|reviews?|jobs|prices|sources|links)|"
+    r"recherchier\w*|such\w*\s+(?:mir\s+)?(?:nach|im\s+(?:internet|netz|web))|"
+    r"finde?\s+(?:mir\s+)?(?:\w+\s+)?(?:infos?|informationen|fakten|details|"
+    r"lösungen|artikel|jobs|stellen|preise|quellen)|"
+    r"im\s+(?:internet|netz|web))\b",
+    re.I,
+)
+# Asking for a new PDF ("make a pdf", "turn that into a pdf", "als PDF"), as
+# opposed to reading, filling or converting an existing one.
+_PDF_EXPORT_REQUEST = re.compile(
+    r"\b(?:make|create|generate|produce|export|turn|give\s+me)\b[^.?!\n]{0,80}?\bpdf\b|"
+    r"\b(?:as|into|to|in)\s+(?:an?\s+)?pdf\b|"
+    r"\bpdf\s+(?:version|copy|file|export|document)\b|"
+    r"\b(?:als|zu\s+einem|in\s+eine?n?)\s+pdf\b|"
+    r"\b(?:erstell|mach|generier|exportier|speicher)\w*\b[^.?!\n]{0,80}?\bpdf\b",
+    re.I,
+)
+_PDF_NOT_EXPORT = re.compile(
+    r"\bpdf\s+(?:to|into|in)\s+(?:word|docx?|text|txt|markdown|excel)\b|"
+    r"\b(?:fill|sign)\b[^.?!\n]{0,40}\bpdf\b|\bpdf\s+form\b",
+    re.I,
+)
+
+# A filename, path, or code noun means the lookup is aimed at local work.
+_LOCAL_LOOKUP_TARGET = re.compile(
+    r"\b\w+\.(?:py|js|mjs|ts|tsx|json|md|txt|ya?ml|toml|sh|css|html)\b|"
+    r"\w/\w|\b(?:bug|function|class|method|variable|codebase|code)\b",
+    re.I,
+)
+
 _LOOKUP = re.compile(
     r"^\s*(?:(?:what(?:['’]?s|\s+is|\s+are)|which|where(?:['’]?s|\s+is|\s+are))"
     r"\s+(?:my|our|the|today['’]?s)\b|what\s+(?:does|did)\s+(?:my|our|the|this|that)\b|"
@@ -4769,6 +4806,23 @@ def corrected_browser_target(message: str, history: Iterable = ()) -> dict | Non
 
 
 def requested_capabilities(message: str, history: Iterable = (), *, active_document=False, workspace=False, image_attachment=False) -> frozenset[str]:
+    """Classify once; a PDF export request adds ``pdf_export`` to whatever else matched.
+
+    The export is layered on top rather than placed among the lexical rules,
+    which return early: "make a pdf of my notes" needs both families.
+    """
+    families = set(_lexical_capabilities(
+        message, history, active_document=active_document, workspace=workspace,
+        image_attachment=image_attachment,
+    ))
+    text = str(message or "")
+    if _PDF_EXPORT_REQUEST.search(text) and not _PDF_NOT_EXPORT.search(text):
+        families.discard("unknown")
+        families.add("pdf_export")
+    return frozenset(families)
+
+
+def _lexical_capabilities(message: str, history: Iterable = (), *, active_document=False, workspace=False, image_attachment=False) -> frozenset[str]:
     """Classify once; inherit a prior capability only for a referential follow-up."""
     message = _routing_email_scope(editor_request_instructions(message))
     raw_text = str(message or "").strip()
@@ -6293,6 +6347,9 @@ def requested_capabilities(message: str, history: Iterable = (), *, active_docum
             if inherited:
                 families.update(inherited)
             break
+    if (not families and _EXPLICIT_WEB_LOOKUP.search(text)
+            and not _LOCAL_LOOKUP_TARGET.search(text)):
+        families.add("search_browser")
     if not families and (_has_action_signal(text) or _LOOKUP.search(text)):
         families.add("unknown")
     return frozenset(families)
