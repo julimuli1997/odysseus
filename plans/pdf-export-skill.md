@@ -76,17 +76,24 @@ and offers it as a download that the user saves to their machine.
    it to the assistant message's `metadata.attachments`, so the existing
    attach-card and the owner-checked download route serve it. The tool result
    tells the model the file was created, so it doesn't claim otherwise.
-5. **Fallback for models without tools:** Ollama `/v1` endpoints get no
-   native tool schemas (opt-in per endpoint), and qwen2.5 rarely writes a
-   textual tool call. If a `pdf_export` turn ends without a successful
-   `create_pdf`, the agent loop creates the PDF itself: from the reply when it
-   is substantive, otherwise from the previous answer. It doesn't run while
-   the turn awaits the user. Untrusted context doesn't block it: nearly every
-   real turn carries some (saved memory, retrieved documents, the runtime
-   context block), and the fallback only renders the visible reply into the
-   owner's own uploads. A skipped fallback logs `[pdf-fallback] skipped`.
-   (Deviation, 2026-10-29: the first version required an untainted turn and
-   so never ran in practice.)
+5. **The reply is the PDF, for every model.** (Deviation, 2026-10-29: the
+   first design relied on the model calling `create_pdf`. With the agent
+   prompt and tools in view, qwen2.5 and qwen3:8b instead planned
+   "conversions", asked for a workspace or said they can't make PDFs, and a
+   prompt note didn't change that.)
+   - **Plain PDF requests** (`pdf_export`, optionally with the `shell_files`
+     family that rides along on "make that into a pdf"): the agent loop hands
+     the turn to one tool-free writer call (`_stream_pdf_writer_turn`). It
+     sees a short "you are the document writer" prompt plus the last 12
+     plain chat messages, without system prompts or injected context (memory,
+     date block). Its streamed reply is shown in chat and rendered into the
+     PDF: a leading `# ` heading becomes the title. A one-line question back
+     makes no PDF. Live check, 2026-10-29: 6/6 correct on qwen2.5 and
+     qwen3:8b (new content EN/DE, and "make that into a pdf").
+   - **Requests that need data** (notes, email, web, an open document) keep
+     the agent loop. If it ends without a `create_pdf` file, the final reply
+     is rendered into the PDF the same way. Untrusted context doesn't block
+     this, since it only renders the visible reply into the owner's uploads.
 6. **Safety:** model-provided Markdown is untrusted. Escape or strip raw HTML
    before templating. The renderer loads no network resources and runs no
    scripts. Size limits apply to both input and output.
