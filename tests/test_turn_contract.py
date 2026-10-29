@@ -137,6 +137,41 @@ def test_explicit_online_lookup_requests_route_to_web_search(prompt):
     assert requested_capabilities(prompt) == frozenset({"search_browser"})
 
 
+@pytest.mark.parametrize("prompt", [
+    "can you look for fixes for my windows status 0xc000000001",
+    "look for sysadmin jobs in Potsdam Berlin, junior level",
+    "find information about Julian Oehmichen",
+    "look up who won the 2022 world cup",
+    "google the boiling point of ethanol",
+    "finde mir Fakten zu Ratten",
+    "finde kleine Fakten zu Ratten im Internet",
+    "recherchiere die Geschichte von Potsdam",
+    "such mir im Netz Infos zu Ratten",
+])
+def test_lookup_verbs_without_another_target_route_to_web_search(prompt):
+    """An explicit lookup with no local target must not leave web_search unauthorized."""
+    assert requested_capabilities(prompt) == frozenset({"search_browser"})
+
+
+@pytest.mark.parametrize("prompt, family", [
+    ("find my notes about rats", "notes"),
+    ("look for files in my workspace", "shell_files"),
+    ("look up my calendar for tomorrow", "calendar"),
+    ("find the email from Bob", "email"),
+    ("find facts about rats in my documents", "documents"),
+])
+def test_lookup_verbs_keep_named_local_targets(prompt, family):
+    assert requested_capabilities(prompt) == frozenset({family})
+
+
+@pytest.mark.parametrize("prompt", [
+    "look for the bug in agent_loop.py",
+    "look into src/upload_routes and find the fix",
+])
+def test_lookup_verbs_aimed_at_local_code_do_not_route_to_web(prompt):
+    assert "search_browser" not in requested_capabilities(prompt)
+
+
 def test_musical_notes_do_not_route_to_personal_notes_when_media_tool_is_explicit():
     prompt = (
         "Your first tool call must be inspect_media for /workspace/input/reference.png. "

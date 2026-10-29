@@ -354,6 +354,26 @@ _EXPLICIT_INLINE_SHELL_COMMAND = re.compile(
     r"[^\n]{0,80}?(?::|`)\s*(?:printf|echo|pwd|whoami|uname|date|true|false|test)\b",
     re.I,
 )
+# Explicit "go find this out" phrasing, English and German. Only consulted when
+# no other family matched, so "find my notes" or "look for files" keep their
+# own targets; without it these requests offered web_search and then denied it.
+_EXPLICIT_WEB_LOOKUP = re.compile(
+    r"\b(?:look\s+(?:up|for|into)|search\s+(?:for|up)|google|find\s+out|"
+    r"find\s+(?:me\s+)?(?:\w+\s+)?(?:info(?:rmation)?|details|facts|fix(?:es)?|"
+    r"solutions?|articles?|reviews?|jobs|prices|sources|links)|"
+    r"recherchier\w*|such\w*\s+(?:mir\s+)?(?:nach|im\s+(?:internet|netz|web))|"
+    r"finde?\s+(?:mir\s+)?(?:\w+\s+)?(?:infos?|informationen|fakten|details|"
+    r"lösungen|artikel|jobs|stellen|preise|quellen)|"
+    r"im\s+(?:internet|netz|web))\b",
+    re.I,
+)
+# A filename, path, or code noun means the lookup is aimed at local work.
+_LOCAL_LOOKUP_TARGET = re.compile(
+    r"\b\w+\.(?:py|js|mjs|ts|tsx|json|md|txt|ya?ml|toml|sh|css|html)\b|"
+    r"\w/\w|\b(?:bug|function|class|method|variable|codebase|code)\b",
+    re.I,
+)
+
 _LOOKUP = re.compile(
     r"^\s*(?:(?:what(?:['’]?s|\s+is|\s+are)|which|where(?:['’]?s|\s+is|\s+are))"
     r"\s+(?:my|our|the|today['’]?s)\b|what\s+(?:does|did)\s+(?:my|our|the|this|that)\b|"
@@ -6293,6 +6313,9 @@ def requested_capabilities(message: str, history: Iterable = (), *, active_docum
             if inherited:
                 families.update(inherited)
             break
+    if (not families and _EXPLICIT_WEB_LOOKUP.search(text)
+            and not _LOCAL_LOOKUP_TARGET.search(text)):
+        families.add("search_browser")
     if not families and (_has_action_signal(text) or _LOOKUP.search(text)):
         families.add("unknown")
     return frozenset(families)
