@@ -172,7 +172,12 @@ if (not families and _EXPLICIT_WEB_LOOKUP.search(text)
    fonts. Rejected alternatives: headless Chromium (depends on the host; finds
    nothing on this Mac) and WeasyPrint (needs Pango and other system libraries
    from Homebrew).
-2. **Check during planning (no decision needed).** `buildAttachCards` is
+2. **Known gap: compact tool surface.** The attachment event is emitted by
+   the main agent loop (`stream_agent_loop`). Turns that run on the compact
+   preview runtime (`clean_agent_preview.stream_preview`, used when a model's
+   tool surface is set to "compact") do not emit it yet. PDF turns route as
+   `selection_mode="routed"`, so the default setup is covered.
+3. **Check during planning (no decision needed).** `buildAttachCards` is
    confirmed for user messages. Whether assistant messages render
    `metadata.attachments` is unverified; if they don't, a small
    `chatRenderer.js` change is needed.
