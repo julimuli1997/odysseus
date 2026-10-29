@@ -93,8 +93,12 @@ def test_writer_handles_plain_pdf_requests_and_leaves_data_requests_to_the_agent
     assert _uses_pdf_writer(turn("pdf_export", "shell_files"), **ok)
     # "minecraft server" adds cookbook_admin; it's a topic word, not a data source.
     assert _uses_pdf_writer(turn("pdf_export", "cookbook_admin"), **ok)
-    assert not _uses_pdf_writer(turn("pdf_export", "notes"), **ok)
-    assert not _uses_pdf_writer(turn("pdf_export", "email"), **ok)
+    # Personal families count only when the request points at the user's data.
+    assert not _uses_pdf_writer(turn("pdf_export", "notes"), **ok, request_text="make a pdf of my notes")
+    assert not _uses_pdf_writer(turn("pdf_export", "email"), **ok, request_text="put my last emails into a pdf")
+    assert not _uses_pdf_writer(turn("pdf_export", "tasks"), **ok, request_text="mach eine pdf aus meinen offenen Aufgaben")
+    assert _uses_pdf_writer(turn("pdf_export", "email"), **ok, request_text="write a polite email template as a pdf")
+    assert _uses_pdf_writer(turn("pdf_export", "notes"), **ok, request_text="make a pdf with study notes on TCP")
     assert not _uses_pdf_writer(turn("pdf_export", "search_browser"), **ok)
     assert not _uses_pdf_writer(turn("notes"), **ok)
     assert not _uses_pdf_writer(turn("pdf_export"), **dict(ok, active_document={"id": "d"}))
@@ -137,9 +141,10 @@ def test_real_pdf_requests_reach_the_writer():
         "create a pdf explanation on how to set up a minecraft server in ubuntu make it very detailed",
         "make a list of bash commands and put them into a pdf",
         "kannst du mir eine Zusammenfassung über server machen. mach eine pdf daraus",
+        "I need a summery of all the important network tasks a switch handles make that into a pdf",
     ):
         contract = SimpleNamespace(capabilities=requested_capabilities(message, []))
-        assert _uses_pdf_writer(contract, **ok), (message, sorted(contract.capabilities))
+        assert _uses_pdf_writer(contract, **ok, request_text=message), (message, sorted(contract.capabilities))
 
 
 def test_prose_reply_with_injected_memory_still_attaches_the_pdf(monkeypatch):
