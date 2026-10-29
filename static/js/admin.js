@@ -1368,7 +1368,7 @@ async function loadEndpoints() {
                 </label>
                 <div class="adm-model-tools-col">
                   <span class="adm-model-tools-label" title="Select the tool schema profile for this model">Tools</span>
-                  <select class="adm-model-tool-mode admin-tools-select" data-ep-model-id="${esc(m.id)}" data-original-tool-mode="${esc(m.tool_mode || '')}" data-tool-mode-touched="0" title="Auto uses Odysseus compact for Odysseus/Ajax names and Regular tools for every other model">
+                  <select class="adm-model-tool-mode admin-tools-select" data-ep-model-id="${esc(m.id)}" data-original-tool-mode="${esc(m.tool_mode || '')}" data-tool-mode-touched="0" title="Auto uses Odysseus compact for Odysseus/Ajax names and for context windows of 16K or less, and Regular tools for every other model">
                     <option value="" ${mode === '' ? 'selected' : ''}>Auto</option>
                     <option value="full" ${mode === 'full' ? 'selected' : ''}>Regular tools</option>
                     <option value="compact" ${mode === 'compact' ? 'selected' : ''}>Ajax Compact</option>

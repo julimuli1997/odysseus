@@ -358,6 +358,25 @@ your browser's network tab while Settings loads the endpoint list). Send
 conservative fenced/text path, or `supports_tools: null` to return the endpoint
 to the Auto heuristic.
 
+**Small context windows (4K/8K/16K).** Agent turns carry tool definitions and
+rules before your message starts. Odysseus reads the serving window from
+llama.cpp (`/slots`, `/props`) and from `/models` (vLLM `max_model_len`). When
+that window is 16K or less and the model's **Tools** mode is **Auto**, native
+tool endpoints switch to **Ajax Compact** schemas and text-tool endpoints get
+one-line tool hints instead of full tool manuals. A typical turn then starts
+at roughly 2.5–3K tokens.
+
+- **4K:** set **Tools** to **Tools off** for that model. Even a compact agent
+  turn leaves almost no room for history and the reply.
+- **8K:** Auto works for single-tool requests; older history is trimmed hard.
+- **16K:** Auto.
+
+Ollama does not report its runtime `num_ctx`, so Odysseus assumes the model's
+trained window (for example 128K for Llama 3.1) and keeps the full tool
+surface. If you run Ollama with a small `OLLAMA_CONTEXT_LENGTH`, set the
+model's **Tools** mode by hand: **Ajax Compact** if it supports native tool
+calls, **Tools off** otherwise.
+
 **Useful checks.**
 
 ```bash

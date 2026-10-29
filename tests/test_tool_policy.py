@@ -226,6 +226,15 @@ def test_compact_prompt_says_current_turn_tools_override_stale_history():
     assert "web_search" in prompt
 
 
+def test_brief_textual_prompt_keeps_usage_lines_without_full_manuals():
+    full = al._assemble_prompt({"bash", "web_search", "ask_user"}, set())
+    brief = al._assemble_prompt({"bash", "web_search", "ask_user"}, set(), brief=True)
+
+    assert "- `bash` — ```bash <shell command> ```" in brief
+    assert "SANDBOX LIMITS" in full and "SANDBOX LIMITS" not in brief
+    assert len(brief) < len(full) // 2
+
+
 def test_web_prompt_distinguishes_announcement_from_availability():
     prompt = al._assemble_prompt({"web_search", "web_fetch", "ask_user"}, set(), compact=True)
 
