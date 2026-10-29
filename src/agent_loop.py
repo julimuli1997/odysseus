@@ -484,20 +484,24 @@ _PDF_FALLBACK_MIN_CHARS = 400
 _THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
 
 
-def _should_run_pdf_fallback(turn_contract, *, pdf_attached: bool, tainted: bool,
+def _is_pdf_export_turn(turn_contract) -> bool:
+    return "pdf_export" in (getattr(turn_contract, "capabilities", None) or ())
+
+
+def _should_run_pdf_fallback(turn_contract, *, pdf_attached: bool,
                              awaiting_user: bool, owner, session_id) -> bool:
     """Make the PDF server-side when the user asked for one but no tool call did.
 
     Models without native tools (Ollama /v1, qwen2.5) often answer in prose
-    instead of calling create_pdf. The fallback is limited to what the gate
-    would have allowed anyway: a pdf_export turn, no untrusted context (which
-    would require exact approval), and no pending question to the user.
+    instead of calling create_pdf. Untrusted context does not block this:
+    nearly every turn carries some (memory, retrieved documents, the runtime
+    context block), and the fallback only renders the reply the user already
+    sees into a file in the owner's own uploads; nothing is sent or executed.
+    It waits while a question to the user is pending.
     """
-    capabilities = getattr(turn_contract, "capabilities", None) or ()
     return bool(
-        "pdf_export" in capabilities
+        _is_pdf_export_turn(turn_contract)
         and not pdf_attached
-        and not tainted
         and not awaiting_user
         and owner
         and session_id
@@ -38411,7 +38415,6 @@ async def stream_agent_loop(
     if _should_run_pdf_fallback(
         turn_contract,
         pdf_attached=_pdf_attached,
-        tainted=run_security.external_untrusted_context_seen,
         awaiting_user=_awaiting_user,
         owner=owner,
         session_id=session_id,
@@ -38436,6 +38439,11 @@ async def stream_agent_loop(
             yield f'data: {json.dumps({"delta": f"{chr(10)}{chr(10)}*PDF attached: {_fallback_name}*"})}\n\n'
         else:
             logger.info("[pdf-fallback] no PDF created: %s", _fallback_result.get("error"))
+    elif _is_pdf_export_turn(turn_contract) and not _pdf_attached:
+        logger.info(
+            "[pdf-fallback] skipped: awaiting_user=%s owner=%s session=%s",
+            _awaiting_user, bool(owner), bool(session_id),
+        )
     _evidence_ledger = EvidenceLedger.from_tool_events(
         tool_events,
         _completion_requirements,
