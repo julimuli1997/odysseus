@@ -31,6 +31,16 @@ def test_no_event_for_failures_other_tools_or_malformed_refs():
     assert _pdf_attachment_event("create_pdf", {"output": "x", "exit_code": 0, "attachment": bad}) is None
 
 
+def test_both_tool_execution_paths_emit_the_attachment_event():
+    """Round-loop calls and approved calls (run before round 1) both attach the file."""
+    import inspect
+    from src.agent_loop import stream_agent_loop
+
+    source = inspect.getsource(stream_agent_loop)
+    assert "_pdf_attachment_event(block.tool_type, result)" in source
+    assert "_pdf_attachment_event(approved.tool_name, approved_result)" in source
+
+
 def test_saved_assistant_message_carries_the_attachment(monkeypatch):
     import core.database
     import routes.chat_helpers as chat_helpers
