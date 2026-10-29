@@ -91,7 +91,10 @@ def test_writer_handles_plain_pdf_requests_and_leaves_data_requests_to_the_agent
     ok = dict(active_document=None, exact_approval=None, plan_mode=False, owner="o", session_id="s")
     assert _uses_pdf_writer(turn("pdf_export"), **ok)
     assert _uses_pdf_writer(turn("pdf_export", "shell_files"), **ok)
+    # "minecraft server" adds cookbook_admin; it's a topic word, not a data source.
+    assert _uses_pdf_writer(turn("pdf_export", "cookbook_admin"), **ok)
     assert not _uses_pdf_writer(turn("pdf_export", "notes"), **ok)
+    assert not _uses_pdf_writer(turn("pdf_export", "email"), **ok)
     assert not _uses_pdf_writer(turn("pdf_export", "search_browser"), **ok)
     assert not _uses_pdf_writer(turn("notes"), **ok)
     assert not _uses_pdf_writer(turn("pdf_export"), **dict(ok, active_document={"id": "d"}))
@@ -121,6 +124,22 @@ def test_fallback_runs_only_for_pdf_turns_without_a_created_pdf():
     assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, pdf_attached=True))
     assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, awaiting_user=True))
     assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, session_id=None))
+
+
+def test_real_pdf_requests_reach_the_writer():
+    """Phrasings from the live app on 2026-10-29, including ones with "server"."""
+    from src.agent_loop import _uses_pdf_writer
+    from src.turn_contract import requested_capabilities
+
+    ok = dict(active_document=None, exact_approval=None, plan_mode=False, owner="o", session_id="s")
+    for message in (
+        "i want a detailed explanation on how to set up a minecraft server completly in the command line on ubuntu as a pdf",
+        "create a pdf explanation on how to set up a minecraft server in ubuntu make it very detailed",
+        "make a list of bash commands and put them into a pdf",
+        "kannst du mir eine Zusammenfassung über server machen. mach eine pdf daraus",
+    ):
+        contract = SimpleNamespace(capabilities=requested_capabilities(message, []))
+        assert _uses_pdf_writer(contract, **ok), (message, sorted(contract.capabilities))
 
 
 def test_prose_reply_with_injected_memory_still_attaches_the_pdf(monkeypatch):

@@ -496,10 +496,14 @@ _PDF_WRITER_PROMPT = (
     "earlier content, written out again in full. No preamble, no remarks about files or "
     "formats, no questions or offers at the end."
 )
-# Families the writer can serve without tools. shell_files is attached to
-# many plain "make that into a pdf" turns; data families (notes, email,
-# web, documents...) need the agent loop to fetch their content.
-_PDF_WRITER_FAMILIES = frozenset({"pdf_export", "shell_files", "unknown"})
+# Families whose tools fetch the user's own content (or the web) for the
+# document; those PDF turns keep the agent loop. Every other family rides
+# along on topic words ("server" adds cookbook_admin, "bash" adds
+# shell_files) and must not take a plain PDF request away from the writer.
+_PDF_DATA_FAMILIES = frozenset({
+    "calendar", "notes", "tasks", "skills", "memory", "documents", "email", "contacts",
+    "sessions", "research", "search_browser", "transcription", "media_inspection", "ocr",
+})
 _PDF_WRITER_HISTORY_MESSAGES = 12
 
 
@@ -508,7 +512,7 @@ def _uses_pdf_writer(turn_contract, *, active_document, exact_approval, plan_mod
     capabilities = frozenset(getattr(turn_contract, "capabilities", None) or ())
     return bool(
         "pdf_export" in capabilities
-        and capabilities <= _PDF_WRITER_FAMILIES
+        and not capabilities & _PDF_DATA_FAMILIES
         and not active_document
         and exact_approval is None
         and not plan_mode
