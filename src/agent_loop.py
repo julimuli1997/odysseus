@@ -521,12 +521,8 @@ def _pdf_fallback_content(final_reply: str) -> str:
 
 
 def _pdf_fallback_title(markdown: str) -> str:
-    for line in str(markdown or "").splitlines():
-        heading = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
-        if heading:
-            return heading.group(1).strip("*_ ")[:80]
-    first = re.split(r"(?<=[.!?])\s", str(markdown or "").strip(), maxsplit=1)[0]
-    return first.rstrip(".!?").strip("*_ ")[:80] or "Document"
+    from src.agent_tools.pdf_tools import title_from_markdown
+    return title_from_markdown(markdown)
 
 
 def _contract_mutation_signature(block, contract):
