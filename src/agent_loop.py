@@ -25600,6 +25600,11 @@ async def stream_agent_loop(
                 except (asyncio.CancelledError, Exception):
                     pass
         total_tool_calls += 1
+        # An approved create_pdf runs here, before round 1, not in the round
+        # loop below, so its file must be attached from this path too.
+        _approved_attachment_event = _pdf_attachment_event(approved.tool_name, approved_result)
+        if _approved_attachment_event:
+            yield _approved_attachment_event
 
         _approved_payload = {}
         try:
