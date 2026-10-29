@@ -8,7 +8,7 @@
 import Storage from './storage.js';
 import uiModule from './ui.js?v=20260916largetoolscroll1';
 import sessionModule from './sessions.js';
-import chatRenderer, { renderToolIcon } from './chatRenderer.js?v=20260914metricssummary1';
+import chatRenderer, { renderToolIcon } from './chatRenderer.js?v=20261029pdfattach1';
 import chatStream from './chatStream.js?v=20261026devsync1';
 import { addAITTSButton } from './tts-ai.js';
 import markdownModule from './markdown.js';
@@ -4720,6 +4720,12 @@ import { invalidateSettings } from './appConfig.js';
                   _sourcesData = json.data; _sourcesType = 'web';
                   _sourcesHtml = _buildSourcesBox(json.data, 'web');
                 }
+              } else if (json.type === 'attachments') {
+                // Files the agent produced (create_pdf). Rendered once the
+                // stream ends; background streams re-render from saved metadata.
+                if (!_isBg && Array.isArray(json.data)) {
+                  holder._attachments = (holder._attachments || []).concat(json.data);
+                }
               } else if (json.type === 'workspace_rejected') {
                 // Server refused to bind the posted workspace (deleted folder,
                 // file path, sensitive dir, filesystem root). Clear the stored
@@ -5777,6 +5783,12 @@ import { invalidateSettings } from './appConfig.js';
         const footerTarget = (roundHolder && roundHolder !== holder && roundHolder.style.display !== 'none') ? roundHolder : holder;
         if (!footerTarget.querySelector('.msg-footer')) {
           footerTarget.appendChild(createMsgFooter(footerTarget, { animate: true }));
+        }
+        // Download cards for files the agent produced this turn (create_pdf).
+        const _attachBody = footerTarget.querySelector('.body');
+        if (holder._attachments?.length && !_isBgFinal && _attachBody
+            && !_attachBody.querySelector('a.attach-card')) {
+          _attachBody.appendChild(chatRenderer.buildAttachCards(holder._attachments, { download: true }));
         }
         if (_generatedImagesForTurn.length && !_isBgFinal) {
           _generatedImagesForTurn.forEach(imgData => _appendGeneratedImageBubble(imgData, streamSessionId));
