@@ -8,7 +8,7 @@
 import Storage from './storage.js';
 import uiModule from './ui.js?v=20260916largetoolscroll1';
 import sessionModule from './sessions.js';
-import chatRenderer, { renderToolIcon } from './chatRenderer.js?v=20261029pdfattach1';
+import chatRenderer, { renderToolIcon } from './chatRenderer.js?v=20261029pdfattach2';
 import chatStream from './chatStream.js?v=20261026devsync1';
 import { addAITTSButton } from './tts-ai.js';
 import markdownModule from './markdown.js';
@@ -3255,7 +3255,7 @@ import { invalidateSettings } from './appConfig.js';
           + markdownModule.processWithThinking(markdownModule.squashOutsideCode(markdownModule.normalizeThinkingMarkup(_streamDisplayText(text, { final: _docFenceOpened }))))
           + (_findingsData ? chatRenderer.buildFindingsBox(_findingsData) : '');
       }
-      function _renderTerminalAnswer(text, messageId = '', renderOwner, replacementScope) {
+      function _renderTerminalAnswer(text, messageId = '', renderOwner, replacementScope, attachments = holder?._attachments) {
         if (renderOwner && !_turnRendering.accepts({ type: 'final_response', render_owner: renderOwner, replacement_scope: replacementScope })) return false;
         _ensureVisibleRoundForDelta();
         const body = roundHolder?.querySelector('.body');
@@ -3264,6 +3264,10 @@ import { invalidateSettings } from './appConfig.js';
           body, html: _terminalAnswerHtml(text, body), raw: text, messageId, render_owner: renderOwner, replacement_scope: replacementScope,
         });
         if (result.changed && window.hljs) body.querySelectorAll('pre code').forEach(block => window.hljs.highlightElement(block));
+        // Re-rendering replaces the body, so put this turn's file cards (create_pdf) back.
+        if (attachments?.length && !body.querySelector('a.attach-card')) {
+          body.appendChild(chatRenderer.buildAttachCards(attachments, { download: true }));
+        }
         if (result.accepted) _turnRendering.settle();
         return result.accepted;
       }
@@ -3292,7 +3296,8 @@ import { invalidateSettings } from './appConfig.js';
           }
           if (!saved || !String(saved.content || '').trim()) return false;
           const scrollSnapshot = uiModule.captureHistoryScroll?.();
-          const rendered = _renderTerminalAnswer(saved.content, _savedAssistantMessageId, saved.metadata?.render_owner, saved.metadata?.replacement_scope);
+          const rendered = _renderTerminalAnswer(saved.content, _savedAssistantMessageId, saved.metadata?.render_owner, saved.metadata?.replacement_scope,
+            saved.metadata?.attachments || holder?._attachments);
           uiModule.restoreHistoryScroll?.(scrollSnapshot);
           if (rendered) _streamTurnMarker.remove();
           return rendered;
