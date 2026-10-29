@@ -41,6 +41,61 @@ def test_both_tool_execution_paths_emit_the_attachment_event():
     assert "_pdf_attachment_event(approved.tool_name, approved_result)" in source
 
 
+LONG_ANSWER = "## Fix Windows 0xc0000001\n\n" + "1. Boot from the USB stick and open Command Prompt.\n" * 12
+
+
+def test_fallback_uses_a_substantive_reply_as_the_pdf_content():
+    from src.agent_loop import _pdf_fallback_content
+
+    assert _pdf_fallback_content(LONG_ANSWER) == LONG_ANSWER.strip()
+    thinking = "<think>plan the answer</think>\n" + LONG_ANSWER
+    assert _pdf_fallback_content(thinking) == LONG_ANSWER.strip()
+
+
+def test_fallback_defers_to_the_previous_answer_for_short_or_question_replies():
+    from src.agent_loop import _pdf_fallback_content
+
+    assert _pdf_fallback_content("Sure — which text should go in the PDF?") == ""
+    question = "To help you convert content to a PDF, I need to know what text you want. " * 3 + "Which one?"
+    assert _pdf_fallback_content(question) == ""
+    assert _pdf_fallback_content("") == ""
+
+
+def test_fallback_title_comes_from_the_first_heading_or_sentence():
+    from src.agent_loop import _pdf_fallback_title
+
+    assert _pdf_fallback_title(LONG_ANSWER) == "Fix Windows 0xc0000001"
+    assert _pdf_fallback_title("Rats are clever. They learn mazes fast.") == "Rats are clever"
+    assert _pdf_fallback_title("") == "Document"
+    assert len(_pdf_fallback_title("word " * 60)) <= 80
+
+
+def test_fallback_runs_only_for_untainted_pdf_turns_without_a_created_pdf():
+    from src.agent_loop import _should_run_pdf_fallback
+    from types import SimpleNamespace
+
+    pdf_turn = SimpleNamespace(capabilities=frozenset({"pdf_export"}))
+    other_turn = SimpleNamespace(capabilities=frozenset({"search_browser"}))
+    ok = dict(pdf_attached=False, tainted=False, awaiting_user=False, owner="o", session_id="s")
+
+    assert _should_run_pdf_fallback(pdf_turn, **ok)
+    assert not _should_run_pdf_fallback(other_turn, **ok)
+    assert not _should_run_pdf_fallback(None, **ok)
+    assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, pdf_attached=True))
+    assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, tainted=True))
+    assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, awaiting_user=True))
+    assert not _should_run_pdf_fallback(pdf_turn, **dict(ok, session_id=None))
+
+
+def test_stream_agent_loop_wires_the_fallback_at_completion():
+    import inspect
+    from src.agent_loop import stream_agent_loop
+
+    source = inspect.getsource(stream_agent_loop)
+    assert "_should_run_pdf_fallback(" in source
+    assert "_pdf_attached = True" in source
+
+
 def test_saved_assistant_message_carries_the_attachment(monkeypatch):
     import core.database
     import routes.chat_helpers as chat_helpers

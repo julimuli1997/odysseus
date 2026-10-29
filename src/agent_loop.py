@@ -480,6 +480,51 @@ def _pdf_attachment_event(tool_type: str, result: dict) -> Optional[str]:
     return f'data: {json.dumps({"type": "attachments", "data": [ref]})}\n\n'
 
 
+_PDF_FALLBACK_MIN_CHARS = 400
+_THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
+
+
+def _should_run_pdf_fallback(turn_contract, *, pdf_attached: bool, tainted: bool,
+                             awaiting_user: bool, owner, session_id) -> bool:
+    """Make the PDF server-side when the user asked for one but no tool call did.
+
+    Models without native tools (Ollama /v1, qwen2.5) often answer in prose
+    instead of calling create_pdf. The fallback is limited to what the gate
+    would have allowed anyway: a pdf_export turn, no untrusted context (which
+    would require exact approval), and no pending question to the user.
+    """
+    capabilities = getattr(turn_contract, "capabilities", None) or ()
+    return bool(
+        "pdf_export" in capabilities
+        and not pdf_attached
+        and not tainted
+        and not awaiting_user
+        and owner
+        and session_id
+    )
+
+
+def _pdf_fallback_content(final_reply: str) -> str:
+    """The reply as PDF content, or "" to make create_pdf use the previous answer.
+
+    A short or question-shaped reply ("which text should go in the PDF?") is
+    not the content the user meant.
+    """
+    text = _THINK_BLOCK_RE.sub("", str(final_reply or "")).strip()
+    if len(text) < _PDF_FALLBACK_MIN_CHARS or text.rstrip().endswith("?"):
+        return ""
+    return text
+
+
+def _pdf_fallback_title(markdown: str) -> str:
+    for line in str(markdown or "").splitlines():
+        heading = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
+        if heading:
+            return heading.group(1).strip("*_ ")[:80]
+    first = re.split(r"(?<=[.!?])\s", str(markdown or "").strip(), maxsplit=1)[0]
+    return first.rstrip(".!?").strip("*_ ")[:80] or "Document"
+
+
 def _contract_mutation_signature(block, contract):
     """Deduplicate an exact successful mutation for the rest of this turn.
 
@@ -25314,6 +25359,7 @@ async def stream_agent_loop(
         return bool(match and match.end() >= len(trailing) - 40)
 
     _awaiting_user = False  # set by ask_user → end the turn and wait for a choice
+    _pdf_attached = False  # a create_pdf file was attached this turn (see _should_run_pdf_fallback)
 
     _doc_stream_create_completed = False
     _ody_doc_tool_completed = False
@@ -25604,6 +25650,7 @@ async def stream_agent_loop(
         # loop below, so its file must be attached from this path too.
         _approved_attachment_event = _pdf_attachment_event(approved.tool_name, approved_result)
         if _approved_attachment_event:
+            _pdf_attached = True
             yield _approved_attachment_event
 
         _approved_payload = {}
@@ -34273,6 +34320,7 @@ async def stream_agent_loop(
 
             _attachment_event = _pdf_attachment_event(block.tool_type, result)
             if _attachment_event:
+                _pdf_attached = True
                 yield _attachment_event
 
             # Extract structured web sources from web_search tool output.
@@ -38360,6 +38408,34 @@ async def stream_agent_loop(
             )
     metrics["requested_endpoint_id"] = requested_endpoint_id
     metrics["requested_endpoint_label"] = requested_endpoint_label
+    if _should_run_pdf_fallback(
+        turn_contract,
+        pdf_attached=_pdf_attached,
+        tainted=run_security.external_untrusted_context_seen,
+        awaiting_user=_awaiting_user,
+        owner=owner,
+        session_id=session_id,
+    ):
+        from src.agent_tools.pdf_tools import CreatePdfTool, _previous_assistant_answer
+        _fallback_markdown = (
+            _pdf_fallback_content(full_response) or _previous_assistant_answer(session_id)
+        )
+        _fallback_result = await CreatePdfTool().execute(
+            json.dumps({
+                "title": _pdf_fallback_title(_fallback_markdown),
+                "content_markdown": _fallback_markdown,
+            }),
+            {"session_id": session_id, "owner": owner},
+        )
+        _fallback_event = _pdf_attachment_event("create_pdf", _fallback_result)
+        if _fallback_event:
+            _pdf_attached = True
+            _fallback_name = _fallback_result["attachment"]["name"]
+            logger.info("[pdf-fallback] model did not call create_pdf; attached %s", _fallback_name)
+            yield _fallback_event
+            yield f'data: {json.dumps({"delta": f"{chr(10)}{chr(10)}*PDF attached: {_fallback_name}*"})}\n\n'
+        else:
+            logger.info("[pdf-fallback] no PDF created: %s", _fallback_result.get("error"))
     _evidence_ledger = EvidenceLedger.from_tool_events(
         tool_events,
         _completion_requirements,
