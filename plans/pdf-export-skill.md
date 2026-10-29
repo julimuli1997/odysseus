@@ -76,7 +76,14 @@ and offers it as a download that the user saves to their machine.
    it to the assistant message's `metadata.attachments`, so the existing
    attach-card and the owner-checked download route serve it. The tool result
    tells the model the file was created, so it doesn't claim otherwise.
-5. **Safety:** model-provided Markdown is untrusted. Escape or strip raw HTML
+5. **Fallback for models without tools:** Ollama `/v1` endpoints get no
+   native tool schemas (opt-in per endpoint), and qwen2.5 rarely writes a
+   textual tool call. If a `pdf_export` turn ends without a successful
+   `create_pdf`, the agent loop creates the PDF itself: from the reply when it
+   is substantive, otherwise from the previous answer. It never runs when
+   untrusted context is present (that case needs exact approval) or while the
+   turn awaits the user.
+6. **Safety:** model-provided Markdown is untrusted. Escape or strip raw HTML
    before templating. The renderer loads no network resources and runs no
    scripts. Size limits apply to both input and output.
 
