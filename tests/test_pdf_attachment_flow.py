@@ -44,21 +44,58 @@ def test_both_tool_execution_paths_emit_the_attachment_event():
 LONG_ANSWER = "## Fix Windows 0xc0000001\n\n" + "1. Boot from the USB stick and open Command Prompt.\n" * 12
 
 
-def test_fallback_uses_a_substantive_reply_as_the_pdf_content():
-    from src.agent_loop import _pdf_fallback_content
+def test_the_reply_is_the_pdf_document_with_its_heading_as_the_title():
+    from src.agent_loop import _pdf_document_from_reply
 
-    assert _pdf_fallback_content(LONG_ANSWER) == LONG_ANSWER.strip()
+    body = LONG_ANSWER.split("\n\n", 1)[1].strip()
+    assert _pdf_document_from_reply(LONG_ANSWER) == ("Fix Windows 0xc0000001", body)
     thinking = "<think>plan the answer</think>\n" + LONG_ANSWER
-    assert _pdf_fallback_content(thinking) == LONG_ANSWER.strip()
+    assert _pdf_document_from_reply(thinking) == ("Fix Windows 0xc0000001", body)
+    assert _pdf_document_from_reply("A haiku.\n\nOld pond, a frog jumps.") == ("A haiku", "A haiku.\n\nOld pond, a frog jumps.")
 
 
-def test_fallback_defers_to_the_previous_answer_for_short_or_question_replies():
-    from src.agent_loop import _pdf_fallback_content
+def test_a_reply_that_only_asks_back_is_not_a_document():
+    from src.agent_loop import _pdf_document_from_reply
 
-    assert _pdf_fallback_content("Sure — which text should go in the PDF?") == ""
-    question = "To help you convert content to a PDF, I need to know what text you want. " * 3 + "Which one?"
-    assert _pdf_fallback_content(question) == ""
-    assert _pdf_fallback_content("") == ""
+    assert _pdf_document_from_reply("Sure — which text should go in the PDF?") is None
+    assert _pdf_document_from_reply("<think>hm</think>") is None
+    assert _pdf_document_from_reply("") is None
+
+
+def test_writer_sees_only_its_prompt_and_the_plain_conversation():
+    from src.agent_loop import _PDF_WRITER_PROMPT, _pdf_writer_messages
+    from src.prompt_security import untrusted_context_message
+
+    messages = [
+        {"role": "system", "content": "agent prompt with tools"},
+        untrusted_context_message("client runtime context", "## Current date and time\nToday is Thursday."),
+        {"role": "user", "content": "how do I install a game?"},
+        {"role": "assistant", "content": "1. Buy it.\n2. Install it."},
+        {"role": "user", "content": "make that into a pdf"},
+    ]
+
+    assert _pdf_writer_messages(messages) == [
+        {"role": "system", "content": _PDF_WRITER_PROMPT},
+        {"role": "user", "content": "how do I install a game?"},
+        {"role": "assistant", "content": "1. Buy it.\n2. Install it."},
+        {"role": "user", "content": "make that into a pdf"},
+    ]
+
+
+def test_writer_handles_plain_pdf_requests_and_leaves_data_requests_to_the_agent():
+    from src.agent_loop import _uses_pdf_writer
+
+    def turn(*families):
+        return SimpleNamespace(capabilities=frozenset(families))
+
+    ok = dict(active_document=None, exact_approval=None, plan_mode=False, owner="o", session_id="s")
+    assert _uses_pdf_writer(turn("pdf_export"), **ok)
+    assert _uses_pdf_writer(turn("pdf_export", "shell_files"), **ok)
+    assert not _uses_pdf_writer(turn("pdf_export", "notes"), **ok)
+    assert not _uses_pdf_writer(turn("pdf_export", "search_browser"), **ok)
+    assert not _uses_pdf_writer(turn("notes"), **ok)
+    assert not _uses_pdf_writer(turn("pdf_export"), **dict(ok, active_document={"id": "d"}))
+    assert not _uses_pdf_writer(turn("pdf_export"), **dict(ok, owner=None))
 
 
 def test_fallback_title_comes_from_the_first_heading_or_sentence():
@@ -108,7 +145,10 @@ def test_prose_reply_with_injected_memory_still_attaches_the_pdf(monkeypatch):
         policy=policy, message=message, history=history,
     )
 
-    async def prose_only(_candidates, _messages, **_kwargs):
+    seen_messages = []
+
+    async def prose_only(_candidates, messages, **_kwargs):
+        seen_messages.append(messages)
         yield f'data: {json.dumps({"delta": LONG_ANSWER})}\n\n'
         yield "data: [DONE]\n\n"
 
@@ -134,7 +174,52 @@ def test_prose_reply_with_injected_memory_still_attaches_the_pdf(monkeypatch):
 
     assert {"type": "attachments", "data": [ATTACHMENT]} in events
     assert created[0][0]["title"] == "Fix Windows 0xc0000001"
+    assert created[0][0]["content_markdown"].startswith("1. Boot from the USB stick")
     assert created[0][1] == {"session_id": "s1", "owner": "o"}
+    writer_messages = seen_messages[0]
+    assert writer_messages[0] == {"role": "system", "content": agent_loop._PDF_WRITER_PROMPT}
+    assert "Prefers short answers" not in json.dumps(writer_messages)
+    assert writer_messages[-1] == {"role": "user", "content": message}
+
+
+def test_no_pdf_when_the_reply_only_asks_back(monkeypatch):
+    import asyncio
+
+    import src.agent_loop as agent_loop
+    import src.agent_tools.pdf_tools as pdf_tools
+    from src.tool_policy import build_effective_tool_policy
+    from src.tool_schemas import FUNCTION_TOOL_SCHEMAS
+    from src.turn_contract import requested_capabilities, resolve_turn_contract
+
+    policy = build_effective_tool_policy(disabled_tools=set(), last_user_message="make a pdf")
+    contract = resolve_turn_contract(
+        capabilities=requested_capabilities("make a pdf", []), schemas=FUNCTION_TOOL_SCHEMAS,
+        policy=policy, message="make a pdf", history=[],
+    )
+
+    async def question(_candidates, _messages, **_kwargs):
+        yield f'data: {json.dumps({"delta": "Which text should go in the PDF?"})}\n\n'
+        yield "data: [DONE]\n\n"
+
+    created = []
+
+    async def fake_create(self, content, ctx):
+        created.append(content)
+        return {"output": "ok", "exit_code": 0, "attachment": ATTACHMENT}
+
+    monkeypatch.setattr(agent_loop, "get_mcp_manager", lambda: None, raising=False)
+    monkeypatch.setattr(agent_loop, "stream_llm_with_fallback", question, raising=False)
+    monkeypatch.setattr(pdf_tools.CreatePdfTool, "execute", fake_create)
+
+    async def run():
+        return [chunk async for chunk in agent_loop.stream_agent_loop(
+            "http://localhost:11434/v1/chat/completions", "any-model",
+            [{"role": "user", "content": "make a pdf"}],
+            session_id="s1", owner="o", turn_contract=contract, tool_policy=policy,
+        )]
+
+    asyncio.run(run())
+    assert created == []
 
 
 def test_stream_agent_loop_wires_the_fallback_at_completion():

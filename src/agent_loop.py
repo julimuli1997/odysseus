@@ -480,8 +480,141 @@ def _pdf_attachment_event(tool_type: str, result: dict) -> Optional[str]:
     return f'data: {json.dumps({"type": "attachments", "data": [ref]})}\n\n'
 
 
-_PDF_FALLBACK_MIN_CHARS = 400
 _THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
+
+# A PDF request is an ordinary request delivered as a file. With the agent
+# prompt and tools in view, models plan a "conversion", ask for a workspace or
+# say they can't make PDFs. So the content comes from one tool-free writer
+# call with this prompt, and the app turns its reply into the PDF. Same for
+# every model and endpoint.
+_PDF_WRITER_PROMPT = (
+    "You are the document writer of a chat app. The user asked for a document; the app "
+    "saves whatever you write as a PDF file for them, so the file format is already taken "
+    "care of. Reply with only the finished document in Markdown, in the user's language: "
+    "a '# ' title line, then the complete content. When the request points to something "
+    "earlier in the conversation (\"that\", \"this\", \"those steps\"), the document is that "
+    "earlier content, written out again in full. No preamble, no remarks about files or "
+    "formats, no questions or offers at the end."
+)
+# Families the writer can serve without tools. shell_files is attached to
+# many plain "make that into a pdf" turns; data families (notes, email,
+# web, documents...) need the agent loop to fetch their content.
+_PDF_WRITER_FAMILIES = frozenset({"pdf_export", "shell_files", "unknown"})
+_PDF_WRITER_HISTORY_MESSAGES = 12
+
+
+def _uses_pdf_writer(turn_contract, *, active_document, exact_approval, plan_mode,
+                     owner, session_id) -> bool:
+    capabilities = frozenset(getattr(turn_contract, "capabilities", None) or ())
+    return bool(
+        "pdf_export" in capabilities
+        and capabilities <= _PDF_WRITER_FAMILIES
+        and not active_document
+        and exact_approval is None
+        and not plan_mode
+        and owner
+        and session_id
+    )
+
+
+def _pdf_writer_messages(messages: List[Dict]) -> List[Dict]:
+    """The writer prompt plus the recent plain conversation.
+
+    System prompts and injected context (memory, retrieved documents, runtime
+    context; marked ``trusted: False``) stay out, so the date block can't
+    become the document.
+    """
+    conversation = [
+        {"role": m["role"], "content": m["content"]}
+        for m in messages
+        if m.get("role") in ("user", "assistant")
+        and isinstance(m.get("content"), str) and m["content"].strip()
+        and (m.get("metadata") or {}).get("trusted") is not False
+    ]
+    return [{"role": "system", "content": _PDF_WRITER_PROMPT}] + conversation[-_PDF_WRITER_HISTORY_MESSAGES:]
+
+
+async def _stream_pdf_writer_turn(*, endpoint_url, model, headers, fallbacks, messages,
+                                  temperature, max_tokens, session_id, owner, workload,
+                                  thinking_mode, reasoning_effort, fallback_statuses,
+                                  fallback_on_empty, route_descriptors):
+    """Answer a PDF request with the writer call, then attach the reply as the PDF."""
+    started = time.time()
+    writer_messages = _pdf_writer_messages(messages)
+    reply = ""
+    actual_model = model
+    input_tokens = output_tokens = 0
+    async for chunk in stream_llm_with_fallback(
+        [(endpoint_url, model, headers)] + list(fallbacks or []),
+        writer_messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        prompt_type=None,
+        tools=None,
+        timeout=int(get_setting("agent_stream_timeout_seconds", 300) or 300),
+        session_id=session_id,
+        workload=workload,
+        thinking_mode=thinking_mode,
+        reasoning_effort=reasoning_effort,
+        fallback_statuses=fallback_statuses,
+        fallback_on_empty=fallback_on_empty,
+        candidate_route_descriptors=route_descriptors,
+    ):
+        if chunk.startswith("event: error"):
+            yield chunk
+            return
+        if not chunk.startswith("data: ") or chunk.startswith("data: [DONE]"):
+            continue
+        try:
+            data = json.loads(chunk[6:])
+        except json.JSONDecodeError:
+            continue
+        if data.get("type") == "usage":
+            usage = data.get("data") or {}
+            actual_model = usage.get("model") or actual_model
+            input_tokens += int(usage.get("input_tokens") or 0)
+            output_tokens += int(usage.get("output_tokens") or 0)
+            continue
+        if "delta" in data and not data.get("thinking"):
+            reply += data.get("delta") or ""
+        yield chunk
+
+    document = _pdf_document_from_reply(reply)
+    attached = False
+    if document is None:
+        logger.info("[pdf-writer] no PDF created: the reply is a question, not a document")
+    else:
+        from src.agent_tools.pdf_tools import CreatePdfTool
+        result = await CreatePdfTool().execute(
+            json.dumps({"title": document[0], "content_markdown": document[1]}),
+            {"session_id": session_id, "owner": owner},
+        )
+        event = _pdf_attachment_event("create_pdf", result)
+        if event:
+            attached = True
+            name = result["attachment"]["name"]
+            logger.info("[pdf-writer] attached the reply as %s", name)
+            yield event
+            yield f'data: {json.dumps({"delta": f"{chr(10)}{chr(10)}*PDF attached: {name}*"})}\n\n'
+        else:
+            logger.info("[pdf-writer] no PDF created: %s", result.get("error"))
+
+    duration = round(time.time() - started, 2)
+    metrics = {
+        "model": actual_model,
+        "requested_model": model,
+        "input_tokens": input_tokens or estimate_tokens(writer_messages),
+        "output_tokens": output_tokens or max(len(reply) // 4, 1),
+        "usage_source": "real" if input_tokens or output_tokens else "estimated",
+        "total_time": duration,
+        "response_time": duration,
+        "agent_rounds": 0,
+        "tool_calls": 0,
+        "pdf_writer": True,
+        "pdf_attached": attached,
+    }
+    yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
+    yield "data: [DONE]\n\n"
 
 
 def _is_pdf_export_turn(turn_contract) -> bool:
@@ -490,14 +623,13 @@ def _is_pdf_export_turn(turn_contract) -> bool:
 
 def _should_run_pdf_fallback(turn_contract, *, pdf_attached: bool,
                              awaiting_user: bool, owner, session_id) -> bool:
-    """Make the PDF server-side when the user asked for one but no tool call did.
+    """Turn the reply into the PDF unless a create_pdf call already attached one.
 
-    Models without native tools (Ollama /v1, qwen2.5) often answer in prose
-    instead of calling create_pdf. Untrusted context does not block this:
-    nearly every turn carries some (memory, retrieved documents, the runtime
-    context block), and the fallback only renders the reply the user already
-    sees into a file in the owner's own uploads; nothing is sent or executed.
-    It waits while a question to the user is pending.
+    Untrusted context does not block this: nearly every turn carries some
+    (memory, retrieved documents, the runtime context block), and it only
+    renders the reply the user already sees into a file in the owner's own
+    uploads; nothing is sent or executed. It waits while a question to the
+    user is pending.
     """
     return bool(
         _is_pdf_export_turn(turn_contract)
@@ -508,16 +640,21 @@ def _should_run_pdf_fallback(turn_contract, *, pdf_attached: bool,
     )
 
 
-def _pdf_fallback_content(final_reply: str) -> str:
-    """The reply as PDF content, or "" to make create_pdf use the previous answer.
+def _pdf_document_from_reply(final_reply: str) -> Optional[tuple[str, str]]:
+    """The reply as the PDF's (title, markdown), or None when it is not a document.
 
-    A short or question-shaped reply ("which text should go in the PDF?") is
-    not the content the user meant.
+    The PDF holds exactly what the user sees in chat. A leading '# ' heading
+    becomes the title and is not repeated in the body. A reply that only asks
+    back ("which text should go in the PDF?") is not a document.
     """
     text = _THINK_BLOCK_RE.sub("", str(final_reply or "")).strip()
-    if len(text) < _PDF_FALLBACK_MIN_CHARS or text.rstrip().endswith("?"):
-        return ""
-    return text
+    if not text or ("\n" not in text and text.endswith("?")):
+        return None
+    title = _pdf_fallback_title(text)
+    first, _, rest = text.partition("\n")
+    if re.match(r"^\s{0,3}#{1,6}\s", first) and rest.strip():
+        text = rest.strip()
+    return title, text
 
 
 def _pdf_fallback_title(markdown: str) -> str:
@@ -21429,6 +21566,19 @@ async def stream_agent_loop(
             yield 'data: [DONE]\n\n'
             return
 
+    if _uses_pdf_writer(turn_contract, active_document=active_document, exact_approval=exact_approval,
+                        plan_mode=plan_mode, owner=owner, session_id=session_id):
+        async for chunk in _stream_pdf_writer_turn(
+            endpoint_url=endpoint_url, model=model, headers=headers, fallbacks=fallbacks,
+            messages=messages, temperature=temperature, max_tokens=max_tokens,
+            session_id=session_id, owner=owner, workload=workload,
+            thinking_mode=thinking_mode, reasoning_effort=reasoning_effort,
+            fallback_statuses=fallback_statuses, fallback_on_empty=fallback_on_empty,
+            route_descriptors=route_descriptors,
+        ):
+            yield chunk
+        return
+
     normalized_external_tool_schemas: list[dict[str, Any]] = []
     # Keep the validated canonical path for single-capability turns. Forcing
     # every result through synthesis caused live router loops; compound work
@@ -38415,26 +38565,24 @@ async def stream_agent_loop(
         owner=owner,
         session_id=session_id,
     ):
-        from src.agent_tools.pdf_tools import CreatePdfTool, _previous_assistant_answer
-        _fallback_markdown = (
-            _pdf_fallback_content(full_response) or _previous_assistant_answer(session_id)
-        )
-        _fallback_result = await CreatePdfTool().execute(
-            json.dumps({
-                "title": _pdf_fallback_title(_fallback_markdown),
-                "content_markdown": _fallback_markdown,
-            }),
-            {"session_id": session_id, "owner": owner},
-        )
-        _fallback_event = _pdf_attachment_event("create_pdf", _fallback_result)
-        if _fallback_event:
-            _pdf_attached = True
-            _fallback_name = _fallback_result["attachment"]["name"]
-            logger.info("[pdf-fallback] model did not call create_pdf; attached %s", _fallback_name)
-            yield _fallback_event
-            yield f'data: {json.dumps({"delta": f"{chr(10)}{chr(10)}*PDF attached: {_fallback_name}*"})}\n\n'
+        _pdf_document = _pdf_document_from_reply(full_response)
+        if _pdf_document is None:
+            logger.info("[pdf-fallback] no PDF created: the reply is a question, not a document")
         else:
-            logger.info("[pdf-fallback] no PDF created: %s", _fallback_result.get("error"))
+            from src.agent_tools.pdf_tools import CreatePdfTool
+            _fallback_result = await CreatePdfTool().execute(
+                json.dumps({"title": _pdf_document[0], "content_markdown": _pdf_document[1]}),
+                {"session_id": session_id, "owner": owner},
+            )
+            _fallback_event = _pdf_attachment_event("create_pdf", _fallback_result)
+            if _fallback_event:
+                _pdf_attached = True
+                _fallback_name = _fallback_result["attachment"]["name"]
+                logger.info("[pdf-fallback] attached the reply as %s", _fallback_name)
+                yield _fallback_event
+                yield f'data: {json.dumps({"delta": f"{chr(10)}{chr(10)}*PDF attached: {_fallback_name}*"})}\n\n'
+            else:
+                logger.info("[pdf-fallback] no PDF created: %s", _fallback_result.get("error"))
     elif _is_pdf_export_turn(turn_contract) and not _pdf_attached:
         logger.info(
             "[pdf-fallback] skipped: awaiting_user=%s owner=%s session=%s",
