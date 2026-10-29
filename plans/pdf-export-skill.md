@@ -86,10 +86,16 @@ and offers it as a download that the user saves to their machine.
      the turn to one tool-free writer call (`_stream_pdf_writer_turn`). It
      sees a short "you are the document writer" prompt plus the last 12
      plain chat messages, without system prompts or injected context (memory,
-     date block). Its streamed reply is shown in chat and rendered into the
-     PDF: a leading `# ` heading becomes the title. A one-line question back
-     makes no PDF. Live check, 2026-10-29: 6/6 correct on qwen2.5 and
-     qwen3:8b (new content EN/DE, and "make that into a pdf").
+     date block). Its reply goes only into the PDF (a leading `# ` heading
+     becomes the title); the chat shows a `create_pdf` tool trace while it
+     is written. A second short call then gets the request and the document
+     and writes the chat reply: two to four sentences, in the user's
+     language, on what the PDF contains. A one-line question back makes no
+     PDF and is shown as the reply. Live check, 2026-10-29: 6/6 correct
+     documents and explanations on qwen2.5 and qwen3:8b (new content EN/DE,
+     and "make that into a pdf").
+     Known gap: later turns see the explanation, not the document, so "add a
+     section to that pdf" can't build on the PDF's text yet.
    - **Requests that need data** (notes, email, web, an open document) keep
      the agent loop. If it ends without a `create_pdf` file, the final reply
      is rendered into the PDF the same way. Untrusted context doesn't block
