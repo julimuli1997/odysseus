@@ -8,9 +8,12 @@ This is the single place that handles:
 - Session lifecycle (create, archive, delete)
 """
 
+import dataclasses
 import json
+import threading
 import uuid
 import logging
+from collections import OrderedDict
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 
@@ -23,6 +26,11 @@ from src.upload_handler import reserve_message_upload_references
 
 # Re-export singleton accessors from models for convenience
 from .models import set_session_manager_instance, get_session_manager_instance
+
+# Full transcripts kept in RAM. Older ones fall back to metadata-only entries
+# and get_session reloads them from the DB on the next access.
+MAX_HYDRATED_SESSIONS = 64
+_HYDRATED_LOCK = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
@@ -464,8 +472,29 @@ class SessionManager:
 
         # Update last_accessed
         self._touch_session(session_id)
+        self._note_hydrated(session_id)
 
         return self.sessions[session_id]
+
+    def _note_hydrated(self, session_id: str) -> None:
+        """Mark a session most recently used; drop the oldest transcripts.
+
+        Evicted entries are replaced with a history-less copy, never cleared in
+        place: a running stream may still hold the old object and keep
+        appending to it. get_session sees the cached count fall short of the
+        stored rows and reloads the transcript.
+        """
+        with _HYDRATED_LOCK:
+            order = self.__dict__.get("_hydrated_order")
+            if order is None:
+                order = self._hydrated_order = OrderedDict()
+            order[session_id] = None
+            order.move_to_end(session_id)
+            while len(order) > MAX_HYDRATED_SESSIONS:
+                old_id, _ = order.popitem(last=False)
+                cached = self.sessions.get(old_id)
+                if cached is not None and cached.history:
+                    self.sessions[old_id] = dataclasses.replace(cached, history=[])
 
     def sync_session_metadata(self, session_id: str) -> bool:
         """Refresh non-message session fields from the DB into the cached object.
