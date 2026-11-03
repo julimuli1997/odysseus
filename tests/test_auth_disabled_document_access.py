@@ -30,10 +30,10 @@ from tests.helpers.import_state import clear_fake_database_modules
 clear_fake_database_modules()
 
 import core.database as cdb
-import routes.document_routes as droutes
+import routes.document.document_routes as droutes
 from core.database import Document
 from core.database import Session as DbSession
-from routes.document_helpers import _verify_doc_owner, _owner_session_filter
+from routes.document.document_helpers import _verify_doc_owner, _owner_session_filter
 
 _TMPDB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _ENGINE = create_engine(

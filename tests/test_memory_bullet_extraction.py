@@ -1,6 +1,6 @@
 """Regression test: extract_memory_from_chat must not crash on bullet lines.
 
-The fallback memory extractor (invoked by routes/memory_routes.py when the LLM
+The fallback memory extractor (invoked by routes/memory/memory_routes.py when the LLM
 extractor fails) matched list items with ``r'^[-*•]|\\d+\\.\\s*(.*)'``. Because
 of alternation precedence that pattern is ``(^[-*•]) | (\\d+\\.\\s*(.*))`` — the
 capture group lives only in the numbered-list branch. A bullet line ("- ...")
@@ -9,7 +9,7 @@ matches the first branch, so ``group(1)`` is ``None`` and ``.strip()`` raised
 a bullet list (the dominant case).
 
 There are two copies of ``MemoryManager``: ``src.memory`` and the
-``services.memory`` package that ``routes/memory_routes.py`` actually imports.
+``services.memory`` package that ``routes/memory/memory_routes.py`` actually imports.
 The fix first landed only in ``src.memory`` while the live route path kept the
 broken copy, and this test imported ``src.memory`` so it stayed green. It now
 exercises both copies so the two cannot drift back apart.

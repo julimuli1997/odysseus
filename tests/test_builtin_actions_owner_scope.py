@@ -99,7 +99,7 @@ async def test_classify_events_resolves_llm_for_task_owner(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_learn_sender_signatures_resolves_llm_for_task_owner(monkeypatch):
-    from routes import email_helpers
+    from routes.email import email_helpers
     from src.builtin_actions import action_learn_sender_signatures
 
     class FakeImap:
@@ -136,7 +136,7 @@ async def test_learn_sender_signatures_resolves_llm_for_task_owner(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_learn_sender_signatures_writes_owner_scoped_cache(monkeypatch, tmp_path):
-    from routes import email_helpers
+    from routes.email import email_helpers
     from src import llm_core, task_endpoint
     from src.builtin_actions import action_learn_sender_signatures
 

@@ -6,7 +6,7 @@ Last updated: dev@86b886c | 2026-10-15
 
 This spec covers web search, URL fetching, and search-derived context in:
 
-- canonical `routes/search/search_routes.py`, with `routes/search_routes.py` as a compatibility shim;
+- canonical `routes/search/search_routes.py`, with `routes/search/search_routes.py` as a compatibility shim;
 - reusable outbound transport primitives in `src/outbound_fetch.py`;
 - `services/search/*` and exported `services.search.SearchService`;
 - `src/search/*` compatibility aliases around canonical service modules;

@@ -17,7 +17,7 @@ clear_fake_database_modules()
 
 import core.auth as core_auth
 import core.database as cdb
-import routes.task_routes as task_routes
+import routes.task.task_routes as task_routes
 from core.database import ScheduledTask
 from core.database import TaskRun
 from src.task_scheduler import TaskScheduler

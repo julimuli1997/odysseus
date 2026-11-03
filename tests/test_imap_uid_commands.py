@@ -44,7 +44,7 @@ class _SpyImap:
 @pytest.mark.asyncio
 async def test_sig_learner_uses_uid_search(monkeypatch):
     """_pull_headers must call conn.uid('SEARCH', ...) not conn.search()."""
-    from routes import email_helpers
+    from routes.email import email_helpers
     from src import task_endpoint
     from src.builtin_actions import action_learn_sender_signatures
 
@@ -61,7 +61,7 @@ async def test_sig_learner_uses_uid_search(monkeypatch):
 @pytest.mark.asyncio
 async def test_sig_learner_uses_uid_fetch(monkeypatch):
     """_pull_headers must call conn.uid('FETCH', ...) not conn.fetch()."""
-    from routes import email_helpers
+    from routes.email import email_helpers
     from src import task_endpoint
     from src.builtin_actions import action_learn_sender_signatures
 
@@ -79,7 +79,7 @@ async def test_daily_brief_uses_uid_commands(monkeypatch):
     """action_daily_brief email section must use uid() not search()/fetch()."""
     from core import database
     from core import auth as _auth_mod
-    from routes import email_helpers
+    from routes.email import email_helpers
     from src.builtin_actions import action_daily_brief
 
     class _Q:

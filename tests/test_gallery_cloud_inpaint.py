@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import httpx
 from PIL import Image
 
-import routes.gallery_routes as gallery
+import routes.gallery.gallery_routes as gallery
 
 
 def png(image):

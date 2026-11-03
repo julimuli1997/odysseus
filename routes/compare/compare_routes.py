@@ -1,4 +1,4 @@
-# routes/compare_routes.py
+# routes/compare/compare_routes.py
 """Model A/B comparison routes."""
 import json
 import uuid

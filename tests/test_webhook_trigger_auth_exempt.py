@@ -2,7 +2,7 @@
 
 The task router exposes ``POST /api/tasks/{task_id}/webhook/{token}`` as a
 public webhook entrypoint — the path-embedded ``webhook_token`` is the
-credential, and the route handler in ``routes/task_routes.py`` validates
+credential, and the route handler in ``routes/task/task_routes.py`` validates
 it against the row and returns 404 on mismatch. The UI advertises the
 URL as "no auth needed" because external callers (Zapier, n8n, curl)
 can't supply a session cookie.
@@ -79,7 +79,7 @@ def test_webhook_trigger_path_is_in_exempt_patterns():
 
 def test_webhook_trigger_handler_still_validates_token():
     """The exemption is only safe because the route handler in
-    routes/task_routes.py still checks the token against the row and
+    routes/task/task_routes.py still checks the token against the row and
     returns 404 on mismatch. Pin that behaviour so a refactor of the
     handler doesn't quietly make the endpoint truly anonymous. Read the
     source directly — importing task_routes pulls in SQLAlchemy and

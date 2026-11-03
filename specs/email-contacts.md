@@ -13,10 +13,10 @@ This spec covers mail and contacts in:
 - email threading in `src/email_thread_parser.py`;
 - email MCP tools in `mcp_servers/email_server.py`;
 - canonical contact/CardDAV routes in `routes/contacts/contacts_routes.py`,
-  with `routes/contacts_routes.py` as a compatibility shim;
+  with `routes/contacts/contacts_routes.py` as a compatibility shim;
 - Codex email bridge in `routes/codex_routes.py`;
 - document signed-reply flows in canonical `routes/document/document_routes.py` and document `source_email_*` fields;
-- reminder/task email senders in `routes/note_routes.py` and `src/task_scheduler.py`;
+- reminder/task email senders in `routes/note/note_routes.py` and `src/task_scheduler.py`;
 - email/contact agent surfaces in `src/tool_implementations.py`, `src/tool_schemas.py`, `src/tool_index.py`, and `src/agent_loop.py`;
 - CLI wrappers `scripts/odysseus-mail` and `scripts/odysseus-contacts`;
 - frontend modules `static/js/emailInbox.js`, `static/js/emailLibrary.js`, `static/js/emailLibrary/*`, `static/js/emailShared.js`, `static/js/chatStream.js`, `static/js/document.js`, and `static/js/settings.js`;
@@ -54,7 +54,7 @@ Email config can fall back to legacy `data/settings.json` or environment variabl
 
 Email owner semantics are route-local and compatibility-sensitive:
 
-- `routes.email_helpers._require_auth()` returns `""` in `AUTH_ENABLED=false` mode, rejects configured auth with no user, and only tolerates first-run anonymous loopback fallback.
+- `routes.email.email_helpers._require_auth()` returns `""` in `AUTH_ENABLED=false` mode, rejects configured auth with no user, and only tolerates first-run anonymous loopback fallback.
 - Empty owner is treated as single-user compatibility: account-ownership assertions no-op, default/first-enabled account fallback can be global, and email cache clauses include `owner = '' OR owner IS NULL`.
 - Non-empty owners scope account/config/cache queries. Legacy ownerless account
   rows are visible to an authenticated owner only when the row's IMAP username or from-address matches that owner, so old unowned rows do not become global cross-user accounts in configured multi-user deployments.
@@ -141,7 +141,7 @@ MCP email remains a separate local/admin trust boundary. Public and non-admin us
 
 ## Contacts
 
-`routes.contacts.contacts_routes` owns global/admin contacts and CardDAV behavior. The top-level `routes.contacts_routes` module is a compatibility shim. The canonical package supports local contacts, CardDAV config, list/search/add/update/delete, VCF/CSV import/export, and clear.
+`routes.contacts.contacts_routes` owns global/admin contacts and CardDAV behavior. The top-level `routes.contacts.contacts_routes` module is a compatibility shim. The canonical package supports local contacts, CardDAV config, list/search/add/update/delete, VCF/CSV import/export, and clear.
 
 Contact runtime behavior:
 

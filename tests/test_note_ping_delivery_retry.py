@@ -12,7 +12,7 @@ from tests.helpers.database import disposable_database
 @pytest.fixture
 def reminder_scan(tmp_path, monkeypatch):
     from core import database
-    from routes import note_routes
+    from routes.note import note_routes
     from src import builtin_actions, integrations, settings
 
     instant = datetime.datetime(2026, 10, 7, 12, tzinfo=datetime.timezone.utc)
@@ -97,7 +97,7 @@ async def test_browser_delivery_is_deduped_and_typed(reminder_scan):
 
 @pytest.mark.asyncio
 async def test_total_delivery_failure_does_not_checkpoint(reminder_scan, monkeypatch):
-    from routes import note_routes
+    from routes.note import note_routes
     from src.builtin_actions import TaskNoop
     scan = reminder_scan
     monkeypatch.setattr(note_routes, "_scheduler_ref", None)

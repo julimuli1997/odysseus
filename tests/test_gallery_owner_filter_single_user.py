@@ -11,7 +11,7 @@ import pytest
 from tests.helpers.database import disposable_database
 
 from core.database import GalleryImage
-from routes.gallery_helpers import _owner_filter
+from routes.gallery.gallery_helpers import _owner_filter
 
 
 @pytest.fixture(autouse=True)

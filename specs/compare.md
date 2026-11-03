@@ -6,11 +6,11 @@ Last updated: dev@c74f475 | 2026-10-15
 
 This spec covers model A/B comparison behavior in:
 
-- canonical `routes/compare/compare_routes.py`, with `routes/compare_routes.py` as a compatibility shim;
+- canonical `routes/compare/compare_routes.py`, with `routes/compare/compare_routes.py` as a compatibility shim;
 - `routes/session_routes.py`;
 - `routes/chat_routes.py` and `routes/chat_helpers.py`;
 - `routes/model_routes.py`;
-- canonical `routes/search/search_routes.py`, with `routes/search_routes.py` as a compatibility shim;
+- canonical `routes/search/search_routes.py`, with `routes/search/search_routes.py` as a compatibility shim;
 - `core/database.py` model `Comparison`;
 - `src/llm_core.py` and `src/endpoint_resolver.py`;
 - frontend modules under `static/js/compare/`;

@@ -43,7 +43,7 @@ def account_db(tmp_path, monkeypatch):
 
 
 def _endpoint(method, path):
-    from routes import email_routes
+    from routes.email import email_routes
 
     with mock.patch.object(email_routes, "_start_poller"):
         router = email_routes.setup_email_routes()
@@ -94,7 +94,7 @@ def _rows(factory):
 
 def _install_lock_pause(monkeypatch, paused_thread_name):
     """Pause one worker after acquisition and observe another waiting."""
-    from routes import email_routes
+    from routes.email import email_routes
 
     real_lock = email_routes._lock_email_account_owner_mutation
     first_acquired = threading.Event()

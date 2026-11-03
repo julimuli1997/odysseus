@@ -10,7 +10,7 @@ editor find the same endpoint.
 
 from types import SimpleNamespace
 
-import routes.gallery_routes as gallery_routes
+import routes.gallery.gallery_routes as gallery_routes
 
 
 class _Predicate:

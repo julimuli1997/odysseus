@@ -8,7 +8,7 @@ from sqlalchemy.pool import NullPool
 
 import core.database as cdb
 from core.database import GalleryAlbum, GalleryImage
-import routes.gallery_routes as gallery_routes
+import routes.gallery.gallery_routes as gallery_routes
 
 
 def _client_with_gallery(monkeypatch, tmp_path):

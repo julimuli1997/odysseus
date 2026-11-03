@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import core.database as cdb
-from routes.email_pollers import _import_calendar_attachments
+from routes.email.email_pollers import _import_calendar_attachments
 
 
 @pytest.fixture

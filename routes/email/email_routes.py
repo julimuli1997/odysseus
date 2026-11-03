@@ -5,8 +5,8 @@ FastAPI route handlers for the email feature. All non-route logic
 (IMAP connection helpers, message parsing, account config, the
 auto-summarize + scheduled-email pollers, Pydantic models) lives in:
 
-    routes/email_helpers.py   — synchronous helpers + models + constants
-    routes/email_pollers.py   — background loops, started by `_start_poller`
+    routes/email/email_helpers.py   — synchronous helpers + models + constants
+    routes/email/email_pollers.py   — background loops, started by `_start_poller`
 
 Importing from the helpers module brings in everything those route
 handlers need. The split is mechanical — no behavior change.

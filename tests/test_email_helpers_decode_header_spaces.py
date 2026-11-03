@@ -1,4 +1,4 @@
-"""routes.email_helpers._decode_header must not inject spaces between parts.
+"""routes.email.email_helpers._decode_header must not inject spaces between parts.
 
 email.header.decode_header returns plain-text runs WITH their surrounding
 whitespace (e.g. (b"Re: ", None)), so joining the parts with " " produced a
@@ -9,7 +9,7 @@ surfaced on the inbox list, message read, search, and the background pollers.
 
 The sibling mcp_servers.email_server._decode_header was already fixed for this
 (see tests/test_mcp_email_decode_header_spaces.py); these pin the same contract
-for the routes.email_helpers copy.
+for the routes.email.email_helpers copy.
 """
 import os
 import tempfile
@@ -19,7 +19,7 @@ _tmp_data = Path(tempfile.mkdtemp(prefix="odysseus_decode_hdr_spaces_"))
 os.environ.setdefault("DATA_DIR", str(_tmp_data))
 os.environ.setdefault("DATABASE_URL", f"sqlite:///{_tmp_data / 'app.db'}")
 
-from routes.email_helpers import _decode_header
+from routes.email.email_helpers import _decode_header
 
 
 def test_prefix_then_encoded_word_single_space():

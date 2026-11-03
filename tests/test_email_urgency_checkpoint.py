@@ -93,7 +93,7 @@ def _account(account_id):
 
 def _configure_action(monkeypatch, tmp_path, account_ids):
     from core import database
-    from routes import email_helpers
+    from routes.email import email_helpers
     from src import builtin_actions, llm_core, settings, task_endpoint
 
     runtime = {
@@ -473,7 +473,7 @@ async def test_action_dispatch_stays_on_app_loop_and_queues_browser_notification
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
     from src import endpoint_resolver, llm_core
     from src.task_scheduler import TaskScheduler
 
@@ -550,7 +550,7 @@ async def test_action_cancellation_rolls_back_without_checkpoint(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, _runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]
@@ -613,7 +613,7 @@ async def test_first_scan_revalidates_account_deleted_before_registration(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]
@@ -666,7 +666,7 @@ async def test_first_scan_deleted_after_revalidation_is_fenced_by_cleanup_pass(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]
@@ -743,7 +743,7 @@ def test_scan_keeps_registration_generation_when_cleanup_precedes_basis(
 ):
     """Cleanup after verification cannot become the stale scan's baseline."""
     from core import database
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]
@@ -839,7 +839,7 @@ async def test_payload_empty_tombstone_fences_reenable_redelete_and_can_recover(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]
@@ -959,7 +959,7 @@ async def test_stale_same_account_scan_cannot_override_newer_commit(
     stale_uids,
     newer_uids,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]
@@ -1034,7 +1034,7 @@ async def test_mixed_stale_and_fresh_accounts_exclude_stale_rows_from_delivery(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a", "acct-b"]
@@ -1104,7 +1104,7 @@ async def test_account_scoped_actions_merge_disjoint_checkpoints(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]
@@ -1151,7 +1151,7 @@ async def test_full_enumeration_retires_deleted_or_disabled_account(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a", "acct-b"]
@@ -1193,7 +1193,7 @@ async def test_zero_enabled_accounts_cleanup_precedes_model_resolution(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
     from src import task_endpoint
 
     builtin_actions, runtime = _configure_action(
@@ -1246,7 +1246,7 @@ async def test_scoped_missing_account_retires_only_selected_payload(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a", "acct-b"]
@@ -1291,7 +1291,7 @@ async def test_failed_account_scan_preserves_checkpoint_until_recovery(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a", "acct-b"]
@@ -1339,7 +1339,7 @@ async def test_cached_flags_refresh_prunes_checkpoint_after_message_is_read(
     monkeypatch,
     tmp_path,
 ):
-    import routes.note_routes as note_routes
+    import routes.note.note_routes as note_routes
 
     builtin_actions, runtime = _configure_action(
         monkeypatch, tmp_path, ["acct-a"]

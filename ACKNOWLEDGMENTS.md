@@ -34,7 +34,7 @@ The full license texts are kept in [`licenses/`](licenses/).
   **Alibaba-NLP / Tongyi Lab** — the multi-step deep-research agent pipeline.
   Copyright © Alibaba-NLP / Tongyi Lab. **Apache-2.0.** Adapted for Odysseus's
   Deep Research feature (`services/research/`, `src/research_handler.py`,
-  `routes/research_routes.py`, `services/search/`). Full text in
+  `routes/research/research_routes.py`, `services/search/`). Full text in
   [`licenses/DeepResearch-Apache-2.0.txt`](licenses/DeepResearch-Apache-2.0.txt).
 
 ---
@@ -158,7 +158,7 @@ concerns from earlier are resolved:
   removed entirely.
 - **PyMuPDF (AGPL-3.0)** is no longer a core dependency. It is **optional** and
   used *only* by the PDF form-filling feature (`src/pdf_forms.py` and the form
-  endpoints in `routes/document_routes.py`), lazy-imported and listed in
+  endpoints in `routes/document/document_routes.py`), lazy-imported and listed in
   `requirements-optional.txt`. The MIT core runs without it. If you choose to
   install it, AGPL's network clause then applies to *that feature* for your
   deployment (Artifex also sells a commercial PyMuPDF license that lifts this).

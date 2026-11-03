@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException, UploadFile
 
-import routes.memory_routes as mr
+import routes.memory.memory_routes as mr
 from src.request_models import MemoryAddRequest
 
 

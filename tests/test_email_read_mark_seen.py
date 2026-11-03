@@ -57,8 +57,8 @@ class FakeImap:
 
 
 def _install_fakes(monkeypatch, tmp_path, *, store_status="OK", readonly_mailbox=False):
-    import routes.email_helpers as email_helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_routes as email_routes
 
     db_path = tmp_path / "email.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)

@@ -1,6 +1,6 @@
 """Regression guard for #1659.
 
-`routes/history_routes.py` ordered three ChatMessage queries by
+`routes/history/history_routes.py` ordered three ChatMessage queries by
 ``DbChatMessage.created_at`` — the mark-stopped (`:268`), update-last-meta
 (`:323`) and merge-last-assistant (`:404`) handlers. The ``ChatMessage`` model
 does **not** inherit ``TimestampMixin`` and exposes only a ``timestamp`` column,
@@ -10,7 +10,7 @@ HTTP 500 on Stop, last-message metadata updates, and Continue/merge.
 This test pins three things:
   1. the model genuinely has ``timestamp`` and no ``created_at`` (justifies the fix);
   2. the corrected ``order_by(DbChatMessage.timestamp)`` query builds and runs;
-  3. ``routes/history_routes.py`` never orders a ChatMessage query by the
+  3. ``routes/history/history_routes.py`` never orders a ChatMessage query by the
      non-existent ``created_at`` column again.
 """
 import os

@@ -12,7 +12,7 @@ This spec covers shell and MCP behavior in:
 - `src/containment.py`, `src/containment_worker.py`, `src/process_ownership.py`, `src/process_lifecycle.py`, and `src/process_reaper.py`;
 - `src/browser_identity.py`, `src/browser_lifecycle.py`, `src/browser_observation.py`, and `src/agent_runtime/process_resources.py`;
 - app wiring and startup/shutdown in `app.py`;
-- MCP configuration routes in canonical `routes/mcp/mcp_routes.py`, with `routes/mcp_routes.py` as a compatibility shim;
+- MCP configuration routes in canonical `routes/mcp/mcp_routes.py`, with `routes/mcp/mcp_routes.py` as a compatibility shim;
 - MCP runtime state in `src/mcp_manager.py`;
 - generic MCP OAuth helpers in `src/mcp_oauth.py`;
 - built-in server registration in `src/builtin_mcp.py`;

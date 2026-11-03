@@ -1974,8 +1974,8 @@ class TaskScheduler:
             explicit = target
 
         try:
-            from routes.email_routes import _resolve_send_config
-            from routes.email_helpers import _send_smtp_message
+            from routes.email.email_routes import _resolve_send_config
+            from routes.email.email_helpers import _send_smtp_message
 
             cfg = _resolve_send_config(account_id=account_id or None, owner=task.owner or "")
             to_addr = explicit or cfg.get("from_address") or cfg.get("smtp_user") or ""
@@ -2384,7 +2384,7 @@ class TaskScheduler:
         # the legacy `email_from` setting and the per-account DB rows.
         recipient = None
         try:
-            from routes.email_helpers import _get_email_config
+            from routes.email.email_helpers import _get_email_config
             cfg = _get_email_config(owner=task.owner or "") or {}
             recipient = cfg.get("from_address") or None
         except Exception as _e:

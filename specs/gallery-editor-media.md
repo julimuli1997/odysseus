@@ -8,7 +8,7 @@ This spec covers media surfaces in:
 
 - app route registration and generated-file serving in `app.py`;
 - canonical models in `core/database.py`, with `src.database` as a compatibility import path;
-- canonical route package `routes/gallery/gallery_routes.py` and `routes/gallery/gallery_helpers.py`, with top-level `routes/gallery_routes.py` and `routes/gallery_helpers.py` compatibility shims;
+- canonical route package `routes/gallery/gallery_routes.py` and `routes/gallery/gallery_helpers.py`, with top-level `routes/gallery/gallery_routes.py` and `routes/gallery/gallery_helpers.py` compatibility shims;
 - generated-image writers in `src/ai_interaction.py` and `mcp_servers/image_gen_server.py`;
 - local MLX image compatibility server `scripts/mlx_image_server.py`;
 - image tool schemas/dispatch/implementations in `src/tool_schemas.py`, `src/tool_execution.py`, and `src/tool_implementations.py`;
@@ -39,7 +39,7 @@ This spec covers media surfaces in:
 
 ## Gallery
 
-`routes.gallery.gallery_routes` owns gallery upload/import/library/editor transform behavior: upload dedupe, image/video extension handling, EXIF extraction for images, albums, favorites, tags, generated media metadata, search/filter/sort, owner filtering, ZIP downloads, soft delete, disk cleanup, and chat-history cleanup after image delete. Top-level `routes.gallery_routes` is a `sys.modules` compatibility shim to the canonical module.
+`routes.gallery.gallery_routes` owns gallery upload/import/library/editor transform behavior: upload dedupe, image/video extension handling, EXIF extraction for images, albums, favorites, tags, generated media metadata, search/filter/sort, owner filtering, ZIP downloads, soft delete, disk cleanup, and chat-history cleanup after image delete. Top-level `routes.gallery.gallery_routes` is a `sys.modules` compatibility shim to the canonical module.
 
 Frontend gallery behavior includes upload progress, folder-drop album import, stale-while-revalidate cards, saved editor projects, detail actions, bulk delete/download, and cache-busted image refreshes.
 

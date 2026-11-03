@@ -311,7 +311,7 @@ def setup_codex_routes(
         limit = max(1, min(int(limit or 10), 50))
         offset = max(0, int(offset or 0))
         if account_id:
-            from routes.email_helpers import _assert_owns_account
+            from routes.email.email_helpers import _assert_owns_account
 
             _assert_owns_account(account_id, owner)
         return await email_list_endpoint(
@@ -338,7 +338,7 @@ def setup_codex_routes(
         if email_read_endpoint is None:
             raise HTTPException(503, "Email integration is not available")
         if account_id:
-            from routes.email_helpers import _assert_owns_account
+            from routes.email.email_helpers import _assert_owns_account
 
             _assert_owns_account(account_id, owner)
         return await email_read_endpoint(
@@ -350,7 +350,7 @@ def setup_codex_routes(
         )
 
     # ── Email draft + send ────────────────────────────────────────────────
-    # Both handlers in routes/email_routes.py already accept `owner=` via
+    # Both handlers in routes/email/email_routes.py already accept `owner=` via
     # FastAPI Depends, so we call them directly without patching state.
 
     def _email_draft_document_content(body: dict[str, Any]) -> str:
@@ -389,7 +389,7 @@ def setup_codex_routes(
             raise HTTPException(403, "API token owner mismatch")
         if documents_create_endpoint is None:
             raise HTTPException(503, "Documents integration is not available")
-        from routes.document_routes import DocumentCreate
+        from routes.document.document_routes import DocumentCreate
 
         subject = str(body.get("subject") or "Email draft").strip() or "Email draft"
         title = str(body.get("title") or subject).strip() or "Email draft"
@@ -411,7 +411,7 @@ def setup_codex_routes(
         owner = _scope_owner(request, EMAIL_DRAFT_SCOPES)
         if email_draft_endpoint is None:
             raise HTTPException(503, "Email integration is not available")
-        from routes.email_routes import SendEmailRequest
+        from routes.email.email_routes import SendEmailRequest
 
         try:
             req = SendEmailRequest(**body)
@@ -424,7 +424,7 @@ def setup_codex_routes(
         owner = _scope_owner(request, EMAIL_SEND_SCOPES)
         if email_send_endpoint is None:
             raise HTTPException(503, "Email integration is not available")
-        from routes.email_routes import SendEmailRequest
+        from routes.email.email_routes import SendEmailRequest
 
         try:
             req = SendEmailRequest(**body)
@@ -550,7 +550,7 @@ def setup_codex_routes(
         owner = _scope_owner(request, DOCS_WRITE_SCOPES)
         if documents_create_endpoint is None:
             raise HTTPException(503, "Documents integration is not available")
-        from routes.document_routes import DocumentCreate
+        from routes.document.document_routes import DocumentCreate
 
         try:
             req = DocumentCreate(**body)

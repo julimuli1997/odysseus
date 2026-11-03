@@ -13,7 +13,7 @@ from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent / "routes" / "gallery" / "gallery_routes.py"
 
-import routes.gallery_routes as gallery_routes
+import routes.gallery.gallery_routes as gallery_routes
 
 
 # ---------------------------------------------------------------------------

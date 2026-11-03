@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 
-from routes.note_routes import dispatch_reminder
+from routes.note.note_routes import dispatch_reminder
 
 
 def _ntfy_integration(base_url):

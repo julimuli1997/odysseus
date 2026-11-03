@@ -1,4 +1,4 @@
-# routes/note_routes.py
+# routes/note/note_routes.py
 """Google Keep-style notes / checklists API."""
 
 import json
@@ -304,7 +304,7 @@ async def dispatch_reminder(
     email_error = ""
     if channel == "email":
         try:
-            from routes.email_routes import _get_email_config, _smtp_ready
+            from routes.email.email_routes import _get_email_config, _smtp_ready
             from email.mime.text import MIMEText
             from email.mime.multipart import MIMEMultipart
             from datetime import datetime as _dt
@@ -388,7 +388,7 @@ async def dispatch_reminder(
                 msg.attach(MIMEText(plain, "plain", "utf-8"))
 
                 def _smtp_send():
-                    from routes.email_helpers import _send_smtp_message
+                    from routes.email.email_helpers import _send_smtp_message
                     _send_smtp_message(cfg, from_addr, [recipient], msg.as_string())
 
                 import asyncio as _aio
