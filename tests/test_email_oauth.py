@@ -26,6 +26,7 @@ not booted; outbound HTTP is mocked and the DB is an isolated in-memory SQLite.
 """
 
 import base64
+import inspect
 import json
 import time
 import unittest.mock as mock
@@ -268,7 +269,14 @@ def _callback_endpoint():
     router = setup_email_routes()
     for route in router.routes:
         if route.path == "/api/email/oauth/google/callback" and "GET" in getattr(route, "methods", set()):
-            return route.endpoint
+            endpoint = route.endpoint
+
+            async def call(**kwargs):
+                result = endpoint(**kwargs)
+                return await result if inspect.isawaitable(result) else result
+
+            call.endpoint = endpoint
+            return call
     raise AssertionError("google_oauth_callback route not found")
 
 
@@ -916,3 +924,12 @@ async def test_config_response_does_not_expose_oauth_storage_fields():
     assert "oauth_token_expiry" not in result
     assert encrypted_access not in json.dumps(result)
     assert encrypted_refresh not in json.dumps(result)
+
+
+def test_callback_runs_off_the_event_loop():
+    """The callback makes blocking httpx calls (token exchange + userinfo, up
+    to 10s each). FastAPI runs a plain `def` endpoint in its threadpool but an
+    `async def` one on the event loop, where those calls froze every other
+    request, chat streams included."""
+    endpoint = _callback_endpoint().endpoint
+    assert not inspect.iscoroutinefunction(endpoint)

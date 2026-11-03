@@ -7830,8 +7830,11 @@ def setup_email_routes():
         from fastapi.responses import RedirectResponse as _RR
         return _RR(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
 
+    # Plain def: the token exchange and userinfo calls below are blocking
+    # httpx requests (up to 10s each), so FastAPI must run this in its
+    # threadpool instead of on the event loop.
     @router.get("/oauth/google/callback")
-    async def google_oauth_callback(
+    def google_oauth_callback(
         code: str = Query(None),
         state: str = Query(None),
         error: str = Query(None),
