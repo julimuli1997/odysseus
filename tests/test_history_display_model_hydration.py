@@ -401,8 +401,7 @@ class _ToolPolicy:
 
 
 class _ChatHandler:
-    async def handle_memory_command(self, _session, _message):
-        return None
+    """No inline memory hook: /api/chat must hand every message to the model."""
 
 
 def _json_request(path, payload):
@@ -437,24 +436,8 @@ def _route_endpoint(router, path):
     return next(route.endpoint for route in router.routes if route.path == path)
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["/api/chat", "/api/chat_stream"])
-async def test_model_send_routes_hydrate_before_context_build(monkeypatch, path):
-    # A real SessionManager over a real (temp) DB — a stub here would only
-    # assert that the stub hydrates, not that SessionManager does.
-    engine, db_factory = _database()
-    _seed_session(db_factory, message_count=6, stored_count=8)
-    manager = _manager(db_factory, monkeypatch)
-    manager.load_sessions()  # restart state: metadata only, no messages cached
-    contexts_built = []
-
-    async def assert_complete_context(session, *_args, **_kwargs):
-        contexts_built.append(session)
-        assert [message.content for message in session.history] == [
-            f"content-{index}" for index in range(6)
-        ]
-        raise _ContextBuildReached
-
+def _stub_send_route(monkeypatch, build_chat_context):
+    """Stub everything on the send path except session lookup and context build."""
     monkeypatch.setattr(chat_routes, "_set_user_time_from_request", lambda *_args: None)
     monkeypatch.setattr(chat_routes, "_verify_session_owner", lambda *_args: None)
     monkeypatch.setattr(chat_routes, "effective_user", lambda *_args: "alice")
@@ -474,7 +457,7 @@ async def test_model_send_routes_hydrate_before_context_build(monkeypatch, path)
         "build_effective_tool_policy",
         lambda **_kwargs: _ToolPolicy(),
     )
-    monkeypatch.setattr(chat_routes, "build_chat_context", assert_complete_context)
+    monkeypatch.setattr(chat_routes, "build_chat_context", build_chat_context)
     monkeypatch.setattr(
         chat_routes,
         "_resolve_request_workspace",
@@ -509,6 +492,28 @@ async def test_model_send_routes_hydrate_before_context_build(monkeypatch, path)
         lambda *_args, **_kwargs: False,
     )
     monkeypatch.setattr(chat_routes, "web_search_enabled_for_turn", lambda *_args: False)
+
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", ["/api/chat", "/api/chat_stream"])
+async def test_model_send_routes_hydrate_before_context_build(monkeypatch, path):
+    # A real SessionManager over a real (temp) DB — a stub here would only
+    # assert that the stub hydrates, not that SessionManager does.
+    engine, db_factory = _database()
+    _seed_session(db_factory, message_count=6, stored_count=8)
+    manager = _manager(db_factory, monkeypatch)
+    manager.load_sessions()  # restart state: metadata only, no messages cached
+    contexts_built = []
+
+    async def assert_complete_context(session, *_args, **_kwargs):
+        contexts_built.append(session)
+        assert [message.content for message in session.history] == [
+            f"content-{index}" for index in range(6)
+        ]
+        raise _ContextBuildReached
+
+    _stub_send_route(monkeypatch, assert_complete_context)
 
     router = chat_routes.setup_chat_routes(
         manager,
@@ -551,6 +556,50 @@ async def test_model_send_routes_hydrate_before_context_build(monkeypatch, path)
     assert contexts_built[0] is contexts_built[1]
     assert first_loads == 1
     assert manager.full_loads == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message", [
+    "Save this draft as a PDF",
+    "note that the meeting moved to 3pm",
+    "store the results in a table",
+    "remember: I like tea",
+])
+async def test_chat_messages_that_look_like_memory_commands_reach_the_model(monkeypatch, tmp_path, message):
+    """/api/chat used to treat any message starting with save/note/store/remember
+    as an inline memory command: the model never saw it, and the memory was
+    written ownerless through the lenient loader. Every message must reach the
+    model, and memory.json must stay untouched."""
+    from src.memory import MemoryManager
+
+    engine, db_factory = _database()
+    _seed_session(db_factory, message_count=2)
+    manager = _manager(db_factory, monkeypatch)
+    memory = MemoryManager(str(tmp_path))
+    before = (tmp_path / "memory.json").read_text()
+    seen = []
+
+    async def capture_context(_session, *_args, **kwargs):
+        seen.append(kwargs.get("message"))
+        raise _ContextBuildReached
+
+    _stub_send_route(monkeypatch, capture_context)
+    handler = _ChatHandler()
+    handler.memory_manager = memory
+    router = chat_routes.setup_chat_routes(manager, handler, object(), object(), object(), object())
+    endpoint = _route_endpoint(router, "/api/chat")
+
+    try:
+        with pytest.raises(_ContextBuildReached):
+            await endpoint(
+                _json_request("/api/chat", {}),
+                ChatRequest(message=message, session="session-1"),
+            )
+    finally:
+        engine.dispose()
+
+    assert seen == [message]
+    assert (tmp_path / "memory.json").read_text() == before
 
 
 def _seed_chats(db_factory, ids, messages=4):
