@@ -630,6 +630,14 @@ export function buildAttachCards(attachments, { download = false } = {}) {
   return attachWrap;
 }
 
+// The newest stored PDF among a turn's attachments, or null. The chat shows it
+// in the Documents pane as soon as the reply ends, so the user sees the PDF
+// before downloading it.
+export function newestPdfAttachment(attachments) {
+  return [...(attachments || [])].reverse().find(att => att?.id
+    && (att.mime === 'application/pdf' || /\.pdf$/i.test(att.name || ''))) || null;
+}
+
 // Re-render the attachment cards of an already-rendered message. Used to swap
 // in real upload ids (and image thumbnails) on the optimistic user bubble once
 // uploadPending() resolves — otherwise image previews only appear after a
@@ -3892,6 +3900,7 @@ const chatRenderer = {
   displayMetrics,
   addMessage,
   buildAttachCards,
+  newestPdfAttachment,
   updateMessageAttachments,
 };
 

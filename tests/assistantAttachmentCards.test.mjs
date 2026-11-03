@@ -137,3 +137,23 @@ test('user attachment cards are unchanged (no download link)', async () => {
     await close();
   }
 });
+
+test('the newest stored PDF of a turn is the one shown in the Documents pane', async () => {
+  const { page, close } = await openPage(chromium);
+  try {
+    const picked = await page.evaluate(() => {
+      const pick = window.__renderer.newestPdfAttachment;
+      const older = { id: 'b'.repeat(32) + '.pdf', name: 'draft.pdf', mime: 'application/pdf' };
+      const newest = { id: 'c'.repeat(32) + '.pdf', name: 'final.PDF' };  // no mime, matched by name
+      return {
+        newest: pick([older, { id: 'x', name: 'notes.txt', mime: 'text/plain' }, newest])?.name,
+        notStored: pick([{ name: 'pending.pdf', mime: 'application/pdf' }]),
+        noPdf: pick([{ id: 'y', name: 'photo.png', mime: 'image/png' }]),
+        empty: pick(undefined),
+      };
+    });
+    assert.deepEqual(picked, { newest: 'final.PDF', notStored: null, noPdf: null, empty: null });
+  } finally {
+    await close();
+  }
+});

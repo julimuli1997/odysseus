@@ -5795,6 +5795,13 @@ import { invalidateSettings } from './appConfig.js';
             && !_attachBody.querySelector('a.attach-card')) {
           _attachBody.appendChild(chatRenderer.buildAttachCards(holder._attachments, { download: true }));
         }
+        // Show the PDF this turn produced in the Documents pane on the right, so
+        // the user can check it without downloading. Desktop only: on phones
+        // (<= 768px, see 05-documents.css) the pane covers the chat.
+        const _turnPdf = _isBgFinal ? null : chatRenderer.newestPdfAttachment(holder._attachments);
+        if (_turnPdf && window.matchMedia('(min-width: 769px)').matches) {
+          openAttachment(_turnPdf, false);
+        }
         if (_generatedImagesForTurn.length && !_isBgFinal) {
           _generatedImagesForTurn.forEach(imgData => _appendGeneratedImageBubble(imgData, streamSessionId));
         }
