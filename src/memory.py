@@ -5,7 +5,7 @@ import os
 import time
 import uuid
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -96,26 +96,6 @@ class MemoryManager:
                         
         return memories
         
-    def process_inline_memory_command(self, message: str) -> Tuple[bool, str]:
-        """
-        Check if a message is an inline memory command (e.g. "remember: X").
-        
-        Args:
-            message: The user message to check
-            
-        Returns:
-            Tuple of (is_command, extracted_text) where is_command is True if 
-            the message matches the memory command pattern
-        """
-        # Pattern for memory commands: "remember: X", "memorize: X", "save: X", etc.
-        pattern = r'^(?:remember|memorize|save|note|store)[:\-]?\s+(.+)$'
-        match = re.match(pattern, message.strip(), re.IGNORECASE)
-        
-        if match:
-            return True, match.group(1).strip()
-        else:
-            return False, ""
-    
     def ensure_file_exists(self):
         """Create memory file if it doesn't exist."""
         if not os.path.exists(self.memory_file):

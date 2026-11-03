@@ -13,7 +13,6 @@ from src.constants import (
     DEFAULT_MAX_TOKENS,
     UPLOAD_DIR,
 )
-from core.models import ChatMessage
 from src.chat_helpers import extract_urls, model_supports_vision
 from src.document_processor import build_user_content, analyze_image_with_vl_result
 from src.youtube_handler import (
@@ -336,27 +335,3 @@ class ChatHandler:
     def trim_history_if_needed(self, session):
         if len(session.history) > MAX_CONTEXT_MESSAGES:
             session.history = session.history[-MAX_CONTEXT_MESSAGES:]
-
-    async def handle_memory_command(self, session, message: str) -> Optional[str]:
-        """Process inline memory commands. Returns response string or None."""
-        is_memory_cmd, memory_text = self.memory_manager.process_inline_memory_command(
-            message
-        )
-        if is_memory_cmd and memory_text:
-            mem = self.memory_manager.load()
-            if not self.memory_manager.find_duplicates(memory_text, mem):
-                new_entry = self.memory_manager.add_entry(memory_text)
-                mem.append(new_entry)
-                self.memory_manager.save(mem)
-
-            session.add_message(ChatMessage("user", message))
-            session.add_message(
-                ChatMessage("assistant", f"Saved to memory: {memory_text}")
-            )
-
-            from src.database import update_session_last_accessed
-
-            update_session_last_accessed(session.id)
-            self.session_manager.save_sessions()
-            return f"Saved to memory: {memory_text}"
-        return None

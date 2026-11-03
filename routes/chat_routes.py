@@ -2316,13 +2316,6 @@ def setup_chat_routes(
         tool_policy = build_effective_tool_policy(last_user_message=message)
         allow_tool_preprocessing = not tool_policy.block_all_tool_calls
 
-        # Inline memory command
-        memory_response = None
-        if not tool_policy.blocks("manage_memory"):
-            memory_response = await chat_handler.handle_memory_command(sess, message)
-        if memory_response:
-            return {"response": memory_response}
-
         foreground_policy = resolve_foreground_model_policy(
             owner=owner,
             allowed_models=_allowed_models_for_request(request),
