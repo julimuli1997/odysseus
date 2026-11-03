@@ -1148,7 +1148,7 @@ def _email_task_account_id(kwargs) -> str | None:
 async def action_summarize_emails(owner: str, **kwargs) -> Tuple[str, bool]:
     """Run one pass of email summary background processing."""
     try:
-        from routes.email_pollers import _run_auto_summarize_once
+        from routes.email.email_pollers import _run_auto_summarize_once
         result = await _run_auto_summarize_once(
             do_summary=True,
             do_reply=False,
@@ -1169,7 +1169,7 @@ async def action_summarize_emails(owner: str, **kwargs) -> Tuple[str, bool]:
 async def action_draft_email_replies(owner: str, **kwargs) -> Tuple[str, bool]:
     """Run one pass of AI reply drafting."""
     try:
-        from routes.email_pollers import _run_auto_summarize_once
+        from routes.email.email_pollers import _run_auto_summarize_once
         result = await _run_auto_summarize_once(
             do_summary=False,
             do_reply=True,
@@ -1204,7 +1204,7 @@ async def action_email_auto_translate(owner: str, **kwargs) -> Tuple[str, bool]:
         from datetime import datetime as _dt, timedelta as _td
 
         from core.database import EmailAccount as _EA, SessionLocal as _SL
-        from routes.email_helpers import (
+        from routes.email.email_helpers import (
             SCHEDULED_DB,
             _decode_header,
             _email_cache_owner_clause,
@@ -1693,7 +1693,7 @@ async def action_extract_email_events(owner: str, **kwargs) -> Tuple[str, bool]:
     and auto-add them to the calendar."""
     import asyncio as _aio
     try:
-        from routes.email_pollers import _run_auto_summarize_once
+        from routes.email.email_pollers import _run_auto_summarize_once
         account_id = _email_task_account_id(kwargs)
         attempts = [
             ("3d window, 3 emails", 3, 3, 240),
@@ -1763,7 +1763,7 @@ async def action_learn_sender_signatures(owner: str, **kwargs) -> Tuple[str, boo
         import email as _email_mod
         import asyncio as _aio
         from datetime import datetime as _dt, timedelta as _td
-        from routes.email_helpers import _email_cache_owner_clause, _imap_connect, SCHEDULED_DB
+        from routes.email.email_helpers import _email_cache_owner_clause, _imap_connect, SCHEDULED_DB
         from src.llm_core import llm_call_async_with_fallback
 
         # 1. Pull recent UIDs + From headers cheaply (header-only fetch).
@@ -1965,7 +1965,7 @@ async def action_daily_brief(owner: str, **kwargs) -> Tuple[str, bool]:
         import json as _json
 
         from core.database import SessionLocal, CalendarEvent, CalendarCal, Note
-        from routes.email_helpers import _imap_connect, _decode_header
+        from routes.email.email_helpers import _imap_connect, _decode_header
 
         # ----- Calendar: today's events -----
         today = _dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -2421,7 +2421,7 @@ async def action_ping_notes(owner: str, **kwargs) -> Tuple[str, bool]:
                         pass
                 body = "\n\n".join(p for p in body_parts if p) or title
                 try:
-                    from routes.note_routes import dispatch_reminder
+                    from routes.note.note_routes import dispatch_reminder
                     result = await dispatch_reminder(
                         title=title, note_body=body, note_id=n.id,
                         owner=n.owner or owner or "",
@@ -2585,7 +2585,7 @@ async def action_check_email_urgency(owner: str, **kwargs) -> Tuple[str, bool]:
         from datetime import datetime as _dt, timedelta as _td
         from pathlib import Path as _P
         from core.database import SessionLocal as _SL, EmailAccount as _EA
-        from routes.email_helpers import _imap_connect, _decode_header
+        from routes.email.email_helpers import _imap_connect, _decode_header
         from src.llm_core import llm_call_async_with_fallback
 
         # Per-owner state file so multi-user runs don't clobber each other's
@@ -3091,7 +3091,7 @@ async def action_check_email_urgency(owner: str, **kwargs) -> Tuple[str, bool]:
         # classified items; message_id lives on the cached verdict so this is cheap.
         try:
             import sqlite3 as _sql3
-            from routes.email_helpers import SCHEDULED_DB, _init_scheduled_db
+            from routes.email.email_helpers import SCHEDULED_DB, _init_scheduled_db
             from datetime import datetime as _dt2
             _init_scheduled_db()
             _conn = _sql3.connect(SCHEDULED_DB)
@@ -3228,7 +3228,7 @@ async def action_check_email_urgency(owner: str, **kwargs) -> Tuple[str, bool]:
         async def _dispatch_urgency_reminder(reminder_keys):
             # Call dispatch_reminder directly: a scheduler has no browser
             # session cookie with which to call the HTTP endpoint.
-            from routes.note_routes import dispatch_reminder
+            from routes.note.note_routes import dispatch_reminder
             title, body = _urgency_reminder_payload(reminder_keys)
             return await dispatch_reminder(
                 title=title,

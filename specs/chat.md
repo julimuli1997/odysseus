@@ -7,7 +7,7 @@ Last updated: dev@c74f475 | 2026-10-15
 This spec covers current chat behavior in:
 
 - `routes/chat_routes.py` and `routes/chat_helpers.py`;
-- `routes/session_routes.py` and canonical `routes/history/history_routes.py`, with `routes/history_routes.py` as a compatibility shim;
+- `routes/session_routes.py` and canonical `routes/history/history_routes.py`, with `routes/history/history_routes.py` as a compatibility shim;
 - `src/chat_helpers.py`;
 - `src/agent_runs.py` and `src/background_tool_jobs.py`;
 - `src/turn_contract.py`, `src/request_models.py`, and `src/agent_runtime/` request authority/runtime selection/context resolution;
@@ -22,7 +22,7 @@ This spec covers current chat behavior in:
 
 ## Session Ownership
 
-`core.session_manager.SessionManager` owns session persistence and message writes. `routes/session_routes.py` owns session list/create/update/archive/delete/folder/importance behavior for the sidebar. `routes.history.history_routes` owns history/topic surfaces, with `routes/history_routes.py` kept as a compatibility shim.
+`core.session_manager.SessionManager` owns session persistence and message writes. `routes/session_routes.py` owns session list/create/update/archive/delete/folder/importance behavior for the sidebar. `routes.history.history_routes` owns history/topic surfaces, with `routes/history/history_routes.py` kept as a compatibility shim.
 
 `core.models.Session` and `ChatMessage` are pure data containers. They do not own persistence; `Session.add_message()` delegates to the configured session manager when present.
 

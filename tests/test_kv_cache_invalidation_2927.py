@@ -38,7 +38,7 @@ def _install_chat_helpers_stubs(monkeypatch):
         "core.models",
         "core.database",
         "routes.prefs_routes",
-        "routes.research_routes",
+        "routes.research.research_routes",
         "src.llm_core",
         "src.context_compactor",
         "src.model_context",

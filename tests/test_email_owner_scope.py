@@ -15,7 +15,7 @@ def _route_endpoint(router, path: str, method: str):
 
 
 def test_email_tag_clause_excludes_legacy_owner_rows_for_authenticated_owner(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
 
     monkeypatch.setattr(
         email_routes,
@@ -31,7 +31,7 @@ def test_email_tag_clause_excludes_legacy_owner_rows_for_authenticated_owner(mon
 
 
 def test_email_tag_clause_keeps_legacy_rows_for_single_user_mode(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
 
     monkeypatch.setattr(
         email_routes,
@@ -46,7 +46,7 @@ def test_email_tag_clause_keeps_legacy_rows_for_single_user_mode(monkeypatch):
 
 
 def test_email_ai_cache_tables_are_owner_scoped_and_migrate_legacy_rows(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
+    import routes.email.email_helpers as email_helpers
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -120,7 +120,7 @@ def test_email_ai_cache_tables_are_owner_scoped_and_migrate_legacy_rows(tmp_path
 
 
 def test_sender_signature_cache_is_owner_scoped_and_migrates_legacy_rows(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
+    import routes.email.email_helpers as email_helpers
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -185,7 +185,7 @@ def test_sender_signature_cache_is_owner_scoped_and_migrates_legacy_rows(tmp_pat
 
 
 def test_email_message_index_is_owner_account_folder_scoped(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
+    import routes.email.email_helpers as email_helpers
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -221,8 +221,8 @@ def test_email_message_index_is_owner_account_folder_scoped(tmp_path, monkeypatc
 
 
 def test_email_index_helpers_roundtrip_and_update_flags(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_routes as email_routes
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -267,8 +267,8 @@ def test_email_index_helpers_roundtrip_and_update_flags(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_ai_reply_cache_lookup_is_owner_scoped(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_routes as email_routes
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -316,8 +316,8 @@ async def test_ai_reply_cache_lookup_is_owner_scoped(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_sender_signature_read_lookup_is_owner_scoped(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_routes as email_routes
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -384,8 +384,8 @@ async def test_sender_signature_read_lookup_is_owner_scoped(tmp_path, monkeypatc
 
 @pytest.mark.asyncio
 async def test_sender_signature_clear_cache_keeps_other_owner_rows(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.task_routes as task_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.task.task_routes as task_routes
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -450,8 +450,8 @@ async def test_sender_signature_clear_cache_keeps_other_owner_rows(tmp_path, mon
 
 @pytest.mark.asyncio
 async def test_scheduled_email_routes_are_owner_scoped(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_routes as email_routes
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -493,8 +493,8 @@ async def test_scheduled_email_routes_are_owner_scoped(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_pending_agent_draft_routes_do_not_expose_ownerless_rows(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_routes as email_routes
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -541,8 +541,8 @@ async def test_pending_agent_draft_routes_do_not_expose_ownerless_rows(tmp_path,
 
 @pytest.mark.asyncio
 async def test_pending_agent_draft_routes_block_cross_owner_actions(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_routes as email_routes
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
@@ -589,8 +589,8 @@ async def test_pending_agent_draft_routes_block_cross_owner_actions(tmp_path, mo
 
 
 def test_scheduled_poller_resolves_config_with_row_owner(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_pollers as email_pollers
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_pollers as email_pollers
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)

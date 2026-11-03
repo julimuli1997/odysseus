@@ -12,13 +12,13 @@ The fix fails safe: when the UID isn't present, return False (callers surface
 "Email not found") and never touch a message by sequence number.
 
 This is distinct from #1874, which fixes the auto-spam poller's `_imap_move` in
-`routes/email_helpers.py`; this covers the user-facing endpoints in
-`routes/email_routes.py`.
+`routes/email/email_helpers.py`; this covers the user-facing endpoints in
+`routes/email/email_routes.py`.
 """
 import pytest
 
-from routes import email_routes
-from routes.email_routes import _store_email_flag, _move_email_message
+from routes.email import email_routes
+from routes.email.email_routes import _store_email_flag, _move_email_message
 
 
 class _FakeConn:

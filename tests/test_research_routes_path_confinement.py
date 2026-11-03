@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from routes.research_routes import setup_research_routes
+from routes.research.research_routes import setup_research_routes
 from routes.research.research_routes import (
     _find_owned_research_path,
     _find_research_path,
@@ -30,7 +30,7 @@ from routes.research.research_routes import (
 @pytest.fixture(autouse=True)
 def _redirect_research_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        "routes.research_routes.DEEP_RESEARCH_DIR",
+        "routes.research.research_routes.DEEP_RESEARCH_DIR",
         str(tmp_path / "deep_research"),
     )
 
@@ -68,21 +68,21 @@ def _research_handler():
 def test_find_returns_existing_trusted_research_path(tmp_path, monkeypatch):
     data_dir = tmp_path / "deep_research"
     expected = _write_research(data_dir, "rp-abc123de4567", owner="alice")
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
     assert _find_research_path("rp-abc123de4567") == expected.resolve()
 
 
 def test_find_returns_none_for_missing_valid_session_id(tmp_path, monkeypatch):
     data_dir = tmp_path / "deep_research"
     data_dir.mkdir()
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
     assert _find_research_path("rp-missing12345") is None
 
 
 def test_require_returns_404_for_missing_valid_session_id(tmp_path, monkeypatch):
     data_dir = tmp_path / "deep_research"
     data_dir.mkdir()
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
     with pytest.raises(HTTPException) as exc:
         _require_research_path("rp-missing12345")
     assert exc.value.status_code == 404
@@ -141,7 +141,7 @@ def test_find_ignores_symlink_escape(tmp_path, monkeypatch):
     outside = tmp_path / "outside"
     data_dir.mkdir()
     outside.mkdir()
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
     target = outside / "rp-linktest1234.json"
     target.write_text("{}", encoding="utf-8")
     link = data_dir / "rp-linktest1234.json"
@@ -156,7 +156,7 @@ def test_find_ignores_symlink_escape(tmp_path, monkeypatch):
 def test_find_owned_returns_path_for_matching_owner(tmp_path, monkeypatch):
     data_dir = tmp_path / "deep_research"
     expected = _write_research(data_dir, "rp-ownedalice1", owner="alice")
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     assert _find_owned_research_path("rp-ownedalice1", "alice") == expected.resolve()
 
@@ -164,7 +164,7 @@ def test_find_owned_returns_path_for_matching_owner(tmp_path, monkeypatch):
 def test_find_owned_returns_none_for_other_owner(tmp_path, monkeypatch):
     data_dir = tmp_path / "deep_research"
     _write_research(data_dir, "rp-ownedbybob12", owner="bob")
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     assert _find_owned_research_path("rp-ownedbybob12", "alice") is None
 
@@ -250,7 +250,7 @@ def test_delete_traversal_does_not_delete_outside_file(tmp_path, monkeypatch):
     data_dir.mkdir(parents=True)
     outside = tmp_path / "sensitive.json"
     outside.write_text('{"secret": true}', encoding="utf-8")
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     router = setup_research_routes(_research_handler())
     target = _route(router, "/api/research/{session_id}", "DELETE")
@@ -265,7 +265,7 @@ def test_archive_traversal_does_not_mutate_outside_file(tmp_path, monkeypatch):
     data_dir.mkdir(parents=True)
     outside = tmp_path / "sensitive.json"
     outside.write_text('{"owner": "alice", "archived": false}', encoding="utf-8")
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     router = setup_research_routes(_research_handler())
     target = _route(router, "/api/research/{session_id}/archive", "POST")
@@ -281,7 +281,7 @@ def test_detail_traversal_does_not_read_outside_file(tmp_path, monkeypatch):
     data_dir.mkdir(parents=True)
     outside = tmp_path / "sensitive.json"
     outside.write_text('{"owner": "alice", "result": "secret data"}', encoding="utf-8")
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     router = setup_research_routes(_research_handler())
     target = _route(router, "/api/research/detail/{session_id}", "GET")
@@ -316,7 +316,7 @@ def test_detail_rejects_symlink_escape(tmp_path, monkeypatch):
         "rp-linktest5678",
         {"owner": "alice", "result": "secret"},
     )
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     router = setup_research_routes(_research_handler())
     target = _route(router, "/api/research/detail/{session_id}", "GET")
@@ -331,7 +331,7 @@ def test_archive_does_not_write_through_symlink_escape(tmp_path, monkeypatch):
         "rp-linkarchive1",
         {"owner": "alice", "archived": False},
     )
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     router = setup_research_routes(_research_handler())
     target = _route(router, "/api/research/{session_id}/archive", "POST")
@@ -354,7 +354,7 @@ def test_delete_does_not_unlink_symlink_escape(tmp_path, monkeypatch):
         {"owner": "alice"},
     )
     link = data_dir / "rp-linkdelete12.json"
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     router = setup_research_routes(_research_handler())
     target = _route(router, "/api/research/{session_id}", "DELETE")
@@ -374,7 +374,7 @@ def test_owner_scoped_paths_stay_within_research_root(tmp_path, monkeypatch):
     """Owner-scoped persisted files resolve within DEEP_RESEARCH_DIR."""
     data_dir = tmp_path / "deep_research"
     data_dir.mkdir(parents=True)
-    monkeypatch.setattr("routes.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
+    monkeypatch.setattr("routes.research.research_routes.DEEP_RESEARCH_DIR", str(data_dir))
 
     root = data_dir.resolve()
     for session_id in ("rp-abc123456789", "rp-000000000001", "abc-xyz-123"):

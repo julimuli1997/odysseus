@@ -122,7 +122,7 @@ def test_calendar_event_gate_rejects_cross_owner():
 # ---------------------------------------------------------------------------
 
 def test_document_owner_filter_rejects_anonymous():
-    from routes.document_routes import _owner_session_filter
+    from routes.document.document_routes import _owner_session_filter
     fake_q = MagicMock()
     out = _owner_session_filter(fake_q, user=None)
     # The fix should call .filter(False) — fake_q.filter was invoked once
@@ -132,7 +132,7 @@ def test_document_owner_filter_rejects_anonymous():
 
 
 def test_document_owner_filter_applies_owner_clause():
-    from routes.document_routes import _owner_session_filter
+    from routes.document.document_routes import _owner_session_filter
     fake_q = MagicMock()
     out = _owner_session_filter(fake_q, user="alice")
     fake_q.filter.assert_called_once()  # one strict filter call
@@ -145,7 +145,7 @@ def test_document_owner_filter_applies_owner_clause():
 
 def test_gallery_owner_filter_blocks_anonymous(monkeypatch):
     monkeypatch.setenv("AUTH_ENABLED", "true")
-    from routes.gallery_routes import _owner_filter
+    from routes.gallery.gallery_routes import _owner_filter
     fake_q = MagicMock()
     out = _owner_filter(fake_q, user=None)
     fake_q.filter.assert_called_once_with(False)
@@ -154,7 +154,7 @@ def test_gallery_owner_filter_blocks_anonymous(monkeypatch):
 
 def test_gallery_owner_filter_allows_single_user_mode(monkeypatch):
     monkeypatch.setenv("AUTH_ENABLED", "false")
-    from routes.gallery_routes import _owner_filter
+    from routes.gallery.gallery_routes import _owner_filter
     fake_q = MagicMock()
     out = _owner_filter(fake_q, user=None)
     fake_q.filter.assert_not_called()
@@ -162,7 +162,7 @@ def test_gallery_owner_filter_allows_single_user_mode(monkeypatch):
 
 
 def test_gallery_owner_filter_passes_user():
-    from routes.gallery_routes import _owner_filter
+    from routes.gallery.gallery_routes import _owner_filter
     fake_q = MagicMock()
     out = _owner_filter(fake_q, user="alice")
     # Under the SQLAlchemy MagicMock stubs we can't introspect the
@@ -184,11 +184,11 @@ def test_gallery_owner_filter_passes_user():
 # calendar/notes/gallery gates above and _verify_session_owner.
 
 def _import_webhook_helper():
-    """Import routes.webhook_routes. Stubs for core.database (ChatMessage,
+    """Import routes.webhook.webhook_routes. Stubs for core.database (ChatMessage,
     Webhook) and src.webhook_manager are provided by the _null_owner_stubs
     autouse fixture."""
     return __import__(
-        "routes.webhook_routes", fromlist=["_caller_owns_session"]
+        "routes.webhook.webhook_routes", fromlist=["_caller_owns_session"]
     )
 
 

@@ -38,7 +38,7 @@ import pytest
 # ── OAuth state signing ──────────────────────────────────────────
 
 def test_oauth_state_round_trips_account_and_owner():
-    from routes.email_helpers import make_oauth_state, verify_oauth_state
+    from routes.email.email_helpers import make_oauth_state, verify_oauth_state
 
     state = make_oauth_state("acct-123", "user@example.com")
     payload = verify_oauth_state(state)
@@ -50,7 +50,7 @@ def test_oauth_state_round_trips_account_and_owner():
 
 
 def test_oauth_state_nonce_is_unique_per_call():
-    from routes.email_helpers import make_oauth_state, verify_oauth_state
+    from routes.email.email_helpers import make_oauth_state, verify_oauth_state
 
     a = verify_oauth_state(make_oauth_state("acct", "o"))
     b = verify_oauth_state(make_oauth_state("acct", "o"))
@@ -58,7 +58,7 @@ def test_oauth_state_nonce_is_unique_per_call():
 
 
 def test_oauth_state_rejects_tampered_account_id():
-    from routes.email_helpers import make_oauth_state, verify_oauth_state
+    from routes.email.email_helpers import make_oauth_state, verify_oauth_state
 
     state = make_oauth_state("acct-123", "user@example.com")
     decoded = base64.urlsafe_b64decode(state.encode()).decode()
@@ -73,7 +73,7 @@ def test_oauth_state_rejects_tampered_account_id():
 
 
 def test_oauth_state_rejects_forged_signature():
-    from routes.email_helpers import make_oauth_state, verify_oauth_state
+    from routes.email.email_helpers import make_oauth_state, verify_oauth_state
 
     state = make_oauth_state("acct-123", "user@example.com")
     decoded = base64.urlsafe_b64decode(state.encode()).decode()
@@ -85,7 +85,7 @@ def test_oauth_state_rejects_forged_signature():
 
 @pytest.mark.parametrize("garbage", ["", "not-base64-at-all", "###", "a|b|c"])
 def test_oauth_state_rejects_garbage(garbage):
-    from routes.email_helpers import verify_oauth_state
+    from routes.email.email_helpers import verify_oauth_state
 
     assert verify_oauth_state(garbage) is None
 
@@ -93,7 +93,7 @@ def test_oauth_state_rejects_garbage(garbage):
 # ── _smtp_ready: OAuth accounts have no password but can still send ──
 
 def test_smtp_ready_true_for_oauth_account_without_password():
-    from routes.email_routes import _smtp_ready
+    from routes.email.email_routes import _smtp_ready
 
     cfg = {
         "smtp_host": "smtp.gmail.com",
@@ -105,7 +105,7 @@ def test_smtp_ready_true_for_oauth_account_without_password():
 
 
 def test_smtp_ready_true_for_password_account():
-    from routes.email_routes import _smtp_ready
+    from routes.email.email_routes import _smtp_ready
 
     cfg = {
         "smtp_host": "smtp.example.com",
@@ -117,7 +117,7 @@ def test_smtp_ready_true_for_password_account():
 
 
 def test_smtp_ready_false_without_password_or_oauth():
-    from routes.email_routes import _smtp_ready
+    from routes.email.email_routes import _smtp_ready
 
     cfg = {
         "smtp_host": "smtp.example.com",
@@ -129,7 +129,7 @@ def test_smtp_ready_false_without_password_or_oauth():
 
 
 def test_smtp_ready_false_without_host():
-    from routes.email_routes import _smtp_ready
+    from routes.email.email_routes import _smtp_ready
 
     cfg = {"smtp_host": "", "smtp_user": "me@x.com", "oauth_provider": "google"}
     assert _smtp_ready(cfg) is False
@@ -138,13 +138,13 @@ def test_smtp_ready_false_without_host():
 # ── XOAUTH2 SASL framing ─────────────────────────────────────────
 
 def test_xoauth2_raw_is_unencoded_sasl_frame():
-    from routes.email_helpers import _xoauth2_raw
+    from routes.email.email_helpers import _xoauth2_raw
 
     assert _xoauth2_raw("me@nyu.edu", "tok123") == "user=me@nyu.edu\x01auth=Bearer tok123\x01\x01"
 
 
 def test_xoauth2_bytes_is_raw_frame_encoded():
-    from routes.email_helpers import _xoauth2_bytes
+    from routes.email.email_helpers import _xoauth2_bytes
 
     assert _xoauth2_bytes("me@nyu.edu", "tok123") == b"user=me@nyu.edu\x01auth=Bearer tok123\x01\x01"
 
@@ -210,10 +210,10 @@ def test_refresh_token_stored_encrypted_not_raw():
 
     with mock.patch("httpx.post", return_value=fake_resp), \
          mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_helpers.os.environ.get", side_effect=lambda k, d="": {
+         mock.patch("routes.email.email_helpers.os.environ.get", side_effect=lambda k, d="": {
              "GOOGLE_OAUTH_CLIENT_ID": "cid", "GOOGLE_OAUTH_CLIENT_SECRET": "csec"
          }.get(k, d)):
-        from routes.email_helpers import _refresh_google_token
+        from routes.email.email_helpers import _refresh_google_token
         result = _refresh_google_token("acct-r")
 
     verify_db = Factory()
@@ -242,10 +242,10 @@ def test_refresh_stores_encrypted_expiry_not_token():
 
     with mock.patch("httpx.post", return_value=fake_resp), \
          mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_helpers.os.environ.get", side_effect=lambda k, d="": {
+         mock.patch("routes.email.email_helpers.os.environ.get", side_effect=lambda k, d="": {
              "GOOGLE_OAUTH_CLIENT_ID": "cid", "GOOGLE_OAUTH_CLIENT_SECRET": "csec"
          }.get(k, d)):
-        from routes.email_helpers import _refresh_google_token
+        from routes.email.email_helpers import _refresh_google_token
         _refresh_google_token("acct-e")
 
     verify_db = Factory()
@@ -265,7 +265,7 @@ def test_refresh_stores_encrypted_expiry_not_token():
 
 def _callback_endpoint():
     """Return the live google_oauth_callback endpoint from the email router."""
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
     router = setup_email_routes()
     for route in router.routes:
         if route.path == "/api/email/oauth/google/callback" and "GET" in getattr(route, "methods", set()):
@@ -294,7 +294,7 @@ def _location(resp):
 async def test_callback_missing_code_returns_generic_error():
     """No `code` query param → generic error redirect, with no account id, owner,
     or state echoed back into the URL."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
 
     callback = _callback_endpoint()
     state = make_oauth_state("acct-1", "alice")
@@ -337,7 +337,7 @@ async def test_callback_owner_mismatch_does_not_write_tokens():
     owner must NOT write tokens — this blocks one authenticated user from
     binding their Google account onto another user's mailbox row.
     """
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
     from core.database import EmailAccount
 
     db, Factory = _make_db()
@@ -376,7 +376,7 @@ async def test_callback_owner_mismatch_does_not_write_tokens():
 async def test_callback_valid_owner_writes_encrypted_tokens_to_intended_account():
     """A signed state whose owner matches the target account writes the tokens —
     and only to that account, stored encrypted (raw token never persisted)."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
     from src.secret_storage import decrypt as _dec
     from core.database import EmailAccount
 
@@ -434,7 +434,7 @@ async def test_callback_valid_owner_writes_encrypted_tokens_to_intended_account(
 
 def _authorize_endpoint():
     """Return the live google_oauth_authorize endpoint from the email router."""
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
     router = setup_email_routes()
     for route in router.routes:
         if route.path == "/api/email/oauth/google/authorize" and "GET" in getattr(route, "methods", set()):
@@ -452,7 +452,7 @@ def _posted_redirect_uri(mock_post):
 async def test_callback_redirect_uri_follows_the_request_scheme(scheme, monkeypatch):
     """The token exchange must echo the scheme the request actually arrived on —
     `https` behind a TLS terminator, `http` on a plain origin."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
 
     monkeypatch.delenv("GOOGLE_OAUTH_REDIRECT_URI", raising=False)
 
@@ -487,7 +487,7 @@ async def test_callback_redirect_uri_follows_the_request_scheme(scheme, monkeypa
 async def test_callback_redirect_uri_env_override_still_wins(monkeypatch):
     """An explicit GOOGLE_OAUTH_REDIRECT_URI is used verbatim — deriving the
     scheme must not override a value the operator pinned by hand."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
 
     pinned = "https://mail.example.com/api/email/oauth/google/callback"
     monkeypatch.setenv("GOOGLE_OAUTH_REDIRECT_URI", pinned)
@@ -541,7 +541,7 @@ async def test_authorize_redirect_uri_follows_the_request_scheme(scheme, monkeyp
 async def test_callback_rejects_token_for_a_different_mailbox_identity():
     """Reconnecting with another Google identity must not replace the token
     while retaining the original IMAP/SMTP login names."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
     from src.secret_storage import encrypt as _enc, decrypt as _dec
     from core.database import EmailAccount
 
@@ -597,7 +597,7 @@ async def test_callback_rejects_token_for_a_different_mailbox_identity():
 async def test_callback_rejects_reconnect_without_a_fresh_refresh_token():
     """A same-identity access token cannot be paired with an unproven refresh
     token retained from a previously mixed row."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
     from src.secret_storage import encrypt as _enc, decrypt as _dec
     from core.database import EmailAccount
 
@@ -647,7 +647,7 @@ async def test_callback_rejects_reconnect_without_a_fresh_refresh_token():
 @pytest.mark.parametrize("userinfo_result", [None, {}, {"email": None}])
 async def test_callback_requires_verified_mailbox_identity(userinfo_result):
     """A failed or incomplete userinfo lookup must not persist fresh tokens."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
     from core.database import EmailAccount
 
     db, Factory = _make_db()
@@ -704,7 +704,7 @@ def test_get_valid_google_token_uses_cached_when_fresh():
     still valid (expiry - 60s buffer > now). Refresh is an outbound HTTP call
     that should only happen when genuinely needed."""
     from src.secret_storage import encrypt as _enc
-    from routes.email_helpers import _get_valid_google_token
+    from routes.email.email_helpers import _get_valid_google_token
 
     future_expiry = str(int(time.time()) + 7200)  # 2 hours from now
     cfg = {
@@ -713,7 +713,7 @@ def test_get_valid_google_token_uses_cached_when_fresh():
         "oauth_token_expiry": future_expiry,
     }
 
-    with mock.patch("routes.email_helpers._refresh_google_token") as mock_refresh:
+    with mock.patch("routes.email.email_helpers._refresh_google_token") as mock_refresh:
         result = _get_valid_google_token("acct-fresh", cfg)
 
     assert result == "ya29.fresh_token"
@@ -723,7 +723,7 @@ def test_get_valid_google_token_uses_cached_when_fresh():
 def test_get_valid_google_token_refreshes_when_expired():
     """_get_valid_google_token must call refresh when the token is expired."""
     from src.secret_storage import encrypt as _enc
-    from routes.email_helpers import _get_valid_google_token
+    from routes.email.email_helpers import _get_valid_google_token
 
     past_expiry = str(int(time.time()) - 10)  # already expired
     cfg = {
@@ -732,7 +732,7 @@ def test_get_valid_google_token_refreshes_when_expired():
         "oauth_token_expiry": past_expiry,
     }
 
-    with mock.patch("routes.email_helpers._refresh_google_token", return_value="ya29.new_token") as mock_refresh:
+    with mock.patch("routes.email.email_helpers._refresh_google_token", return_value="ya29.new_token") as mock_refresh:
         result = _get_valid_google_token("acct-exp", cfg)
 
     mock_refresh.assert_called_once_with("acct-exp")
@@ -754,10 +754,10 @@ def test_refresh_failure_returns_none_no_secret_raised():
 
     with mock.patch("httpx.post", return_value=failing_resp), \
          mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_helpers.os.environ.get", side_effect=lambda k, d="": {
+         mock.patch("routes.email.email_helpers.os.environ.get", side_effect=lambda k, d="": {
              "GOOGLE_OAUTH_CLIENT_ID": "cid", "GOOGLE_OAUTH_CLIENT_SECRET": "csec"
          }.get(k, d)):
-        from routes.email_helpers import _refresh_google_token
+        from routes.email.email_helpers import _refresh_google_token
         result = _refresh_google_token("acct-fail")
 
     assert result is None, "failed refresh must return None, not raise"
@@ -766,8 +766,8 @@ def test_refresh_failure_returns_none_no_secret_raised():
 def test_refresh_without_credentials_returns_none():
     """_refresh_google_token must return None immediately when the OAuth client
     credentials are not configured — no DB query, no HTTP call."""
-    with mock.patch("routes.email_helpers.os.environ.get", return_value=""):
-        from routes.email_helpers import _refresh_google_token
+    with mock.patch("routes.email.email_helpers.os.environ.get", return_value=""):
+        from routes.email.email_helpers import _refresh_google_token
         result = _refresh_google_token("acct-any")
 
     assert result is None
@@ -778,7 +778,7 @@ def test_refresh_without_credentials_returns_none():
 def test_imap_connect_uses_login_for_password_accounts():
     """Existing password-auth IMAP accounts must still call conn.login() and
     must NOT trigger the XOAUTH2 authenticate path."""
-    from routes.email_helpers import _imap_connect
+    from routes.email.email_helpers import _imap_connect
 
     mock_conn = mock.MagicMock()
     # _imap_connect calls _get_email_config internally — mock it to return our cfg.
@@ -792,8 +792,8 @@ def test_imap_connect_uses_login_for_password_accounts():
         "account_id": "acct-pw",
     }
 
-    with mock.patch("routes.email_helpers._open_imap_connection", return_value=mock_conn), \
-         mock.patch("routes.email_helpers._get_email_config", return_value=cfg):
+    with mock.patch("routes.email.email_helpers._open_imap_connection", return_value=mock_conn), \
+         mock.patch("routes.email.email_helpers._get_email_config", return_value=cfg):
         _imap_connect("acct-pw", owner="alice")
 
     mock_conn.login.assert_called_once_with("me@gmail.com", "app-password-xyz")
@@ -803,7 +803,7 @@ def test_imap_connect_uses_login_for_password_accounts():
 def test_imap_connect_uses_xoauth2_for_oauth_accounts():
     """OAuth accounts must call conn.authenticate('XOAUTH2', ...) and must NOT
     call conn.login() — which would fail without a password."""
-    from routes.email_helpers import _imap_connect
+    from routes.email.email_helpers import _imap_connect
     from src.secret_storage import encrypt as _enc
 
     mock_conn = mock.MagicMock()
@@ -820,8 +820,8 @@ def test_imap_connect_uses_xoauth2_for_oauth_accounts():
         "oauth_token_expiry": future_expiry,
     }
 
-    with mock.patch("routes.email_helpers._open_imap_connection", return_value=mock_conn), \
-         mock.patch("routes.email_helpers._get_email_config", return_value=cfg):
+    with mock.patch("routes.email.email_helpers._open_imap_connection", return_value=mock_conn), \
+         mock.patch("routes.email.email_helpers._get_email_config", return_value=cfg):
         _imap_connect("acct-oauth", owner="alice")
 
     mock_conn.authenticate.assert_called_once()
@@ -835,7 +835,7 @@ async def test_account_list_response_does_not_expose_token_values():
     expose `oauth_provider` (so the UI can show OAuth status) but never the
     access/refresh token values, encrypted or otherwise — only boolean
     has_*_password flags and the provider name."""
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
     from src.secret_storage import encrypt as _enc
 
     raw_access = "ya29.super_secret_access_token"
@@ -874,7 +874,7 @@ async def test_account_list_response_does_not_expose_token_values():
 async def test_config_response_does_not_expose_oauth_storage_fields():
     """The client-facing config route must not serialize the encrypted token
     fields returned by the internal transport helper."""
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
     from src.secret_storage import encrypt as _enc
 
     encrypted_access = _enc("ya29.internal_access_token")
@@ -908,8 +908,8 @@ async def test_config_response_does_not_expose_oauth_storage_fields():
             break
     assert get_config is not None, "email config route not found"
 
-    with mock.patch("routes.email_routes._get_email_config", return_value=internal_cfg.copy()), \
-         mock.patch("routes.email_routes._load_settings", return_value={}):
+    with mock.patch("routes.email.email_routes._get_email_config", return_value=internal_cfg.copy()), \
+         mock.patch("routes.email.email_routes._load_settings", return_value={}):
         result = await get_config(owner="alice")
 
     assert result["oauth_provider"] == "google"

@@ -1,4 +1,4 @@
-from routes.document_helpers import _resolve_user_upload_path
+from routes.document.document_helpers import _resolve_user_upload_path
 
 
 class _FakeHandler:

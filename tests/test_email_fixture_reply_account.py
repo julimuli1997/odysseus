@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_fixture_read_preserves_selected_account_for_reply(tmp_path, monkeypatch):
-    import routes.email_routes as module
+    import routes.email.email_routes as module
     monkeypatch.setenv('ODYSSEUS_EMAIL_FIXTURE', '1')
     monkeypatch.setattr(module, 'DATA_DIR', str(tmp_path))
     (tmp_path / 'fixture_email_messages.json').write_text(json.dumps({'messages': [
@@ -23,7 +23,7 @@ async def test_fixture_read_preserves_selected_account_for_reply(tmp_path, monke
 
 @pytest.mark.asyncio
 async def test_ai_reply_still_checks_selected_account_before_generation(monkeypatch):
-    import routes.email_routes as module
+    import routes.email.email_routes as module
     from fastapi import HTTPException
     checked = []
 

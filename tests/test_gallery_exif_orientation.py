@@ -20,7 +20,7 @@ from PIL import Image
 
 @pytest.fixture
 def extract_exif(monkeypatch):
-    """Import routes.gallery_helpers under a core.database stub.
+    """Import routes.gallery.gallery_helpers under a core.database stub.
 
     _extract_exif never touches the DB, but the module imports GalleryImage
     at import time and the conftest sqlalchemy stubs make the real

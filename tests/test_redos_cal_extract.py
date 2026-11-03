@@ -13,7 +13,7 @@ promptly on the adversarial input that hung the old pattern.
 
 import time
 
-from routes.email_pollers import _CAL_ACTION_ARRAY_RE
+from routes.email.email_pollers import _CAL_ACTION_ARRAY_RE
 
 
 def _matches(s):

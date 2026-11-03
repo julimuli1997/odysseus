@@ -265,7 +265,7 @@ def test_rename_no_deep_research_dir_does_not_crash(rename_endpoint):
 def test_rename_updates_active_research_task_owner(rename_endpoint):
     endpoint, _am, tmp_path = rename_endpoint
 
-    from routes.research_routes import setup_research_routes
+    from routes.research.research_routes import setup_research_routes
     from src.research_handler import ResearchHandler
 
     rh = ResearchHandler.__new__(ResearchHandler)

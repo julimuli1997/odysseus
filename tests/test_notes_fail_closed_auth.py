@@ -36,7 +36,7 @@ from sqlalchemy.pool import NullPool
 
 import core.database as cdb
 from core.database import Note
-import routes.note_routes as nr
+import routes.note.note_routes as nr
 
 
 # A deliberately NON-loopback peer. require_user has loopback fall-throughs

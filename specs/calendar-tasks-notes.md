@@ -9,11 +9,11 @@ This spec covers calendar, reminders, tasks, assistant runs, and notes in:
 - app route wiring, auth exemptions, and scheduler startup in `app.py`;
 - canonical database models in `core/database.py`, with `src/database.py` as a compatibility re-export;
 - `routes/calendar_routes.py`, `src/caldav_sync.py`, and `src/caldav_writeback.py`;
-- canonical `routes/task/task_routes.py`, compatibility shim `routes/task_routes.py`, `src/task_scheduler.py`, `src/task_endpoint.py`, `src/event_bus.py`, and `src/interactive_gate.py`;
+- canonical `routes/task/task_routes.py`, compatibility shim `routes/task/task_routes.py`, `src/task_scheduler.py`, `src/task_endpoint.py`, `src/event_bus.py`, and `src/interactive_gate.py`;
 - shared privileged task-action policy in `src/task_action_policy.py`;
 - `routes/assistant_routes.py`;
 - canonical `routes/note/note_routes.py`, compatibility shim
-  `routes/note_routes.py`, `src/builtin_actions.py`, and `src/action_intents.py`;
+  `routes/note/note_routes.py`, `src/builtin_actions.py`, and `src/action_intents.py`;
 - agent/tool call sites in `src/tool_index.py` and `src/tool_implementations.py`;
 - scoped Codex wrappers in `routes/codex_routes.py`;
 - database models `CalendarCal`, `CalendarEvent`, `ScheduledTask`, `TaskRun`, `Note`, and `CrewMember`;
@@ -51,7 +51,7 @@ Calendar credentials are encrypted at rest and are not returned to clients. CalD
 
 Cookbook serve scheduling crosses this domain. The Cookbook UI creates `cookbook_serve` scheduled tasks, can mirror them as Cookbook calendar events with `cookbook_event_uid`, and task deletion cleans up the linked event when present, falling back to exact-summary matching for legacy events without a stored UID. Cookbook command execution/lifecycle details stay in `cookbook-hwfit.md`.
 
-`routes.task.task_routes` owns task CRUD, status, manual run/stop/cancel, pause/resume, owner-scoped run/activity history, metadata, onboarding defaults, cache clearing, parse endpoints, and webhook-token regeneration. `app.py` imports the canonical package path; `routes/task_routes.py` replaces its module entry with the canonical module for legacy import and monkeypatch compatibility. Chained-task `then_task_id` values are validated as same-owner relationships on create/update, and scheduler execution also rejects cross-owner or cyclic chains.
+`routes.task.task_routes` owns task CRUD, status, manual run/stop/cancel, pause/resume, owner-scoped run/activity history, metadata, onboarding defaults, cache clearing, parse endpoints, and webhook-token regeneration. `app.py` imports the canonical package path; `routes/task/task_routes.py` replaces its module entry with the canonical module for legacy import and monkeypatch compatibility. Chained-task `then_task_id` values are validated as same-owner relationships on create/update, and scheduler execution also rejects cross-owner or cyclic chains.
 
 `src.tools.system.do_manage_tasks()` translates structured schedules: `day_of_month` is an integer 1–31 for monthly tasks, while recurring `weekdays` names plus `scheduled_time` in UTC `HH:MM` become a cron expression. Conflicting day/cron inputs are rejected. One-off `scheduled_date` values are parsed to naive UTC and must be future dates; recurring schedules reject supplied one-off dates, and invalid cron expressions are refused. A time-only edit of an existing five-field cron rewrites its minute/hour fields while preserving calendar fields and recomputes `next_run`; it does not merely update the legacy display clock.
 
@@ -67,7 +67,7 @@ Task runtime behavior:
 - event-bus triggers persist counters and `next_run` before scheduler handoff;
 - the in-process scheduler is gated by `ODYSSEUS_INPROCESS_TASKS`, and multiple enabled app processes can double-run work.
 - action tasks with `run_local`, `run_script`, `ssh_command`, or
-  `cookbook_serve` are admin-only. `routes.task_routes` enforces this on create/update/manual run and hides those actions from `/meta/actions` for non-admin owners; webhook and scheduler execution pause the task and clear `next_run` if an admin-only action belongs to a non-admin owner.
+  `cookbook_serve` are admin-only. `routes.task.task_routes` enforces this on create/update/manual run and hides those actions from `/meta/actions` for non-admin owners; webhook and scheduler execution pause the task and clear `next_run` if an admin-only action belongs to a non-admin owner.
 - background LLM task execution uses the background workload path, and the
   scheduler can abort/cancel active in-process task runs when foreground browser activity appears.
 - `tidy_research` scans all persisted research files because broken JSON has no trustworthy owner stamp, so it runs only for admins or the explicit auth-disabled single-user operator and refuses regular/pre-setup callers before enumeration.
@@ -76,7 +76,7 @@ Task runtime behavior:
 
 ## Notes And Reminders
 
-`routes.note.note_routes` owns notes/todos/reminders, and `app.py` imports that canonical path. `routes.note_routes` replaces its module entry with the canonical module for legacy import and monkeypatch compatibility. Notes are SQLAlchemy `Note` rows and can include due dates, ordering, images, repeat state, AI classification, source/session provenance, and agent session linkage.
+`routes.note.note_routes` owns notes/todos/reminders, and `app.py` imports that canonical path. `routes.note.note_routes` replaces its module entry with the canonical module for legacy import and monkeypatch compatibility. Notes are SQLAlchemy `Note` rows and can include due dates, ordering, images, repeat state, AI classification, source/session provenance, and agent session linkage.
 
 Notes CRUD/reorder/reminder routes resolve the acting owner through `require_user()`: auth-enabled anonymous requests fail closed before hitting owner-scoped queries, while documented no-login/single-user modes still resolve to the compatibility owner path.
 

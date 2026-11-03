@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
-from routes.note_routes import dispatch_reminder
+from routes.note.note_routes import dispatch_reminder
 
 
 _REPO = Path(__file__).resolve().parents[1]
@@ -28,8 +28,8 @@ def test_dispatch_reminder_sends_with_google_oauth_without_smtp_password():
 
     with (
         patch("src.settings.load_settings", return_value={}),
-        patch("routes.email_routes._get_email_config", return_value=cfg),
-        patch("routes.email_helpers._send_smtp_message", side_effect=fake_send),
+        patch("routes.email.email_routes._get_email_config", return_value=cfg),
+        patch("routes.email.email_helpers._send_smtp_message", side_effect=fake_send),
         patch("core.database.SessionLocal", side_effect=AssertionError("fallback lookup is not needed")),
     ):
         result = asyncio.run(dispatch_reminder(

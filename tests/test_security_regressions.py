@@ -2,7 +2,7 @@
 
 - `src.secret_storage.encrypt/decrypt` round-trip, idempotent on already-
   encrypted input, transparent on legacy plaintext, fail-soft on bad key.
-- `routes.email_helpers._q` quotes IMAP mailbox names so a folder named
+- `routes.email.email_helpers._q` quotes IMAP mailbox names so a folder named
   `"INBOX" (BODY ...` (or one containing `\\`) can't terminate the IMAP
   command early.
 - Compose-upload tokens flow through `pathlib.Path(token).name` so a
@@ -210,8 +210,8 @@ def test_integrations_plaintext_keys_migrate_on_load(tmp_path, monkeypatch):
 # ── _q IMAP mailbox quoter ─────────────────────────────────────
 
 def _import_q():
-    sys.modules.pop("routes.email_helpers", None)
-    from routes.email_helpers import _q  # noqa: WPS433
+    sys.modules.pop("routes.email.email_helpers", None)
+    from routes.email.email_helpers import _q  # noqa: WPS433
     return _q
 
 
@@ -248,8 +248,8 @@ def test_q_empty_input():
 # ── provider auth error normalization ──────────────────────────
 
 def _import_friendly_email_auth_error():
-    sys.modules.pop("routes.email_helpers", None)
-    from routes.email_helpers import _friendly_email_auth_error  # noqa: WPS433
+    sys.modules.pop("routes.email.email_helpers", None)
+    from routes.email.email_helpers import _friendly_email_auth_error  # noqa: WPS433
     return _friendly_email_auth_error
 
 
@@ -431,16 +431,16 @@ def test_chat_preprocess_does_not_surface_cross_owner_attachment(tmp_path, monke
 def test_document_upload_lookup_rejects_cross_owner_marker(tmp_path, monkeypatch):
     from src.upload_handler import UploadHandler
 
-    sys.modules.pop("routes.document_helpers", None)
+    sys.modules.pop("routes.document.document_helpers", None)
     _stub_core_database_for_route_imports(monkeypatch)
-    from routes.document_helpers import _locate_upload
+    from routes.document.document_helpers import _locate_upload
 
     upload_dir, _alice_id, bob_id = _make_upload_store(tmp_path)
     handler = UploadHandler(str(tmp_path), str(upload_dir))
 
     assert _locate_upload(str(upload_dir), bob_id, owner="alice", upload_handler=handler) is None
     assert _locate_upload(str(upload_dir), bob_id, owner="bob", upload_handler=handler).endswith(bob_id)
-    sys.modules.pop("routes.document_helpers", None)
+    sys.modules.pop("routes.document.document_helpers", None)
 
 
 def test_find_source_upload_id_rejects_path_traversal_marker():
@@ -454,10 +454,10 @@ def test_pdf_marker_write_rejects_cross_owner_upload(tmp_path, monkeypatch):
     """Saving a doc whose front-matter points at another user's upload must 400."""
     from src.upload_handler import UploadHandler
 
-    sys.modules.pop("routes.document_helpers", None)
+    sys.modules.pop("routes.document.document_helpers", None)
     _stub_core_database_for_route_imports(monkeypatch)
     from fastapi import HTTPException
-    from routes.document_helpers import _assert_pdf_marker_upload_owned
+    from routes.document.document_helpers import _assert_pdf_marker_upload_owned
 
     upload_dir, _alice_id, bob_id = _make_upload_store(tmp_path)
     handler = UploadHandler(str(tmp_path), str(upload_dir))
@@ -487,7 +487,7 @@ def test_pdf_marker_write_rejects_cross_owner_upload(tmp_path, monkeypatch):
     own_marker = f'<!-- pdf_source upload_id="{_alice_id}" -->\n\n# Notes\n'
     _assert_pdf_marker_upload_owned(_Req(), own_marker, "alice", handler)
 
-    sys.modules.pop("routes.document_helpers", None)
+    sys.modules.pop("routes.document.document_helpers", None)
 
 
 def test_pdf_marker_render_lookup_denies_cross_owner_without_doc_leak(tmp_path):
@@ -552,8 +552,8 @@ def test_inprocess_pollers_gate(monkeypatch):
     `odysseus-mail poll-*` CLI subcommands instead. Two pollers racing
     on the same SQLite would mark scheduled rows as 'sent' twice."""
     import sys as _sys
-    _sys.modules.pop("routes.email_pollers", None)
-    from routes.email_pollers import _inprocess_pollers_enabled  # noqa: WPS433
+    _sys.modules.pop("routes.email.email_pollers", None)
+    from routes.email.email_pollers import _inprocess_pollers_enabled  # noqa: WPS433
 
     # Defaults to enabled (preserves single-process deployments).
     monkeypatch.delenv("ODYSSEUS_INPROCESS_POLLERS", raising=False)
@@ -862,7 +862,7 @@ def test_web_content_fetcher_blocks_dns_to_private(monkeypatch):
 
 
 def test_mcp_config_listing_is_admin_gated():
-    from routes import mcp_routes
+    from routes.mcp import mcp_routes
 
     src = Path(mcp_routes.__file__).read_text()
     assert "def list_servers(request: Request):" in src
@@ -968,8 +968,8 @@ def test_web_fetch_guard_blocks_redirect_into_private(monkeypatch):
 # ── audit fixes (2026-06-01): email XSS, attachment traversal, authz ──
 
 def _import_attachment_extract_dir():
-    sys.modules.pop("routes.email_helpers", None)
-    from routes.email_helpers import attachment_extract_dir, ATTACHMENTS_DIR
+    sys.modules.pop("routes.email.email_helpers", None)
+    from routes.email.email_helpers import attachment_extract_dir, ATTACHMENTS_DIR
     return attachment_extract_dir, ATTACHMENTS_DIR
 
 
@@ -1039,8 +1039,8 @@ def test_mcp_oauth_page_escapes_reflected_values():
 
 
 def _import_mcp_routes():
-    sys.modules.pop("routes.mcp_routes", None)
-    return importlib.import_module("routes.mcp_routes")
+    sys.modules.pop("routes.mcp.mcp_routes", None)
+    return importlib.import_module("routes.mcp.mcp_routes")
 
 
 def test_google_mcp_oauth_uses_configured_redirect_base(monkeypatch):

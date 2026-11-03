@@ -18,19 +18,19 @@ def _route_endpoint(router, path: str, method: str):
 
 
 def test_coerce_port_accepts_int_and_numeric_string():
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     assert email_routes._coerce_port(2525, 993) == (2525, None)
     assert email_routes._coerce_port("465", 993) == (465, None)
 
 
 def test_coerce_port_blank_uses_default():
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     assert email_routes._coerce_port(None, 993) == (993, None)
     assert email_routes._coerce_port("", 465) == (465, None)
 
 
 def test_coerce_port_rejects_non_numeric():
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     port, err = email_routes._coerce_port("imap", 993)
     assert port is None
     assert err and "port" in err.lower()
@@ -39,7 +39,7 @@ def test_coerce_port_rejects_non_numeric():
 @pytest.mark.asyncio
 async def test_create_account_rejects_non_numeric_port():
     """A bad port is rejected before any DB work, with the endpoint's error shape."""
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     router = email_routes.setup_email_routes()
     create = _route_endpoint(router, "/api/email/accounts", "POST")
     result = await create(

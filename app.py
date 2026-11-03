@@ -317,7 +317,7 @@ if AUTH_ENABLED:
     AUTH_EXEMPT_PREFIXES = ["/static"]
     # Dynamic paths whose own handler proves identity via a path-embedded
     # secret instead of the session/bearer auth. The route handler at
-    # routes/task_routes.py validates the per-task `webhook_token` itself
+    # routes/task/task_routes.py validates the per-task `webhook_token` itself
     # and returns 404 on mismatch, so the path is the credential — the
     # UI labels these URLs "no auth needed" precisely because external
     # callers (Zapier, n8n, curl) can't supply a session cookie. Without
@@ -942,7 +942,7 @@ from routes.note.note_routes import setup_note_routes
 app.include_router(setup_note_routes(task_scheduler, upload_handler=upload_handler))
 
 # Email
-from routes.email_routes import setup_email_routes
+from routes.email.email_routes import setup_email_routes
 email_router = setup_email_routes()
 app.include_router(email_router)
 

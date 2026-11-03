@@ -7,7 +7,7 @@ Last updated: dev@86b886c | 2026-10-15
 This spec covers deep research behavior in:
 
 - app wiring and timeout policy in `app.py` and `src/app_initializer.py`;
-- canonical browser/API routes in `routes/research/research_routes.py`, with `routes/research_routes.py` as a compatibility shim;
+- canonical browser/API routes in `routes/research/research_routes.py`, with `routes/research/research_routes.py` as a compatibility shim;
 - chat-triggered research in `routes/chat_routes.py`;
 - diagnostics in `routes/diagnostics_routes.py`;
 - scheduled research in canonical `routes/task/task_routes.py`, its top-level compatibility shim, and `src/task_scheduler.py`;
@@ -35,7 +35,7 @@ This spec covers deep research behavior in:
 
 `src.research_handler.ResearchHandler` owns panel and chat-stream active research jobs: validation, query synthesis, model probing, endpoint/model selection inputs, task registry state, cancellation, progress, raw findings, result persistence, average-duration caching, owner stamping, and owner rename for active/disk-backed task state.
 
-`routes.research.research_routes` owns the browser/API surface: auth and privileges, active/status/cancel/result/result-peek/stream routes, report HTML, hide/unhide images, library/detail/archive/delete, endpoint resolution for panel launch, and spinoff chat creation. Top-level `routes.research_routes` is a `sys.modules` compatibility shim.
+`routes.research.research_routes` owns the browser/API surface: auth and privileges, active/status/cancel/result/result-peek/stream routes, report HTML, hide/unhide images, library/detail/archive/delete, endpoint resolution for panel launch, and spinoff chat creation. Top-level `routes.research.research_routes` is a `sys.modules` compatibility shim.
 
 Internal-tool owner forwarding rejects only request sentinel identities. The reserved Default/Local storage owner is allowed to own research state in explicit no-login storage flows, while named-user lookups and route gates remain authoritative in configured auth mode.
 

@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-import routes.contacts_routes as contacts
+import routes.contacts.contacts_routes as contacts
 from src.tools.contacts import do_manage_contact
 
 OWNER = 'sft_contact_fixture'

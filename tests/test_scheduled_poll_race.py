@@ -22,8 +22,8 @@ import time
 
 
 def test_concurrent_pollers_do_not_double_send(tmp_path, monkeypatch):
-    import routes.email_helpers as email_helpers
-    import routes.email_pollers as email_pollers
+    import routes.email.email_helpers as email_helpers
+    import routes.email.email_pollers as email_pollers
 
     db_path = tmp_path / "scheduled_emails.db"
     monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)

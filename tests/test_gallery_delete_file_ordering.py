@@ -15,7 +15,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from core.database import Base, GalleryImage
-import routes.gallery_routes as gallery_routes
+import routes.gallery.gallery_routes as gallery_routes
 
 
 def _delete_endpoint():

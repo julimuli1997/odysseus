@@ -5,7 +5,7 @@ from tests.helpers.js_modules import email_library_source
 
 
 def test_attachment_filename_is_part_of_ui_index_search(tmp_path, monkeypatch):
-    from routes import email_routes
+    from routes.email import email_routes
 
     db_path = tmp_path / "mail.db"
     conn = sqlite3.connect(db_path)
@@ -34,7 +34,7 @@ def test_attachment_filename_is_part_of_ui_index_search(tmp_path, monkeypatch):
 
 
 def test_signature_only_message_has_no_visible_attachments():
-    from routes.email_helpers import _has_visible_attachments
+    from routes.email.email_helpers import _has_visible_attachments
 
     msg = EmailMessage()
     msg.set_content("Regards")
@@ -51,7 +51,7 @@ def test_signature_only_message_has_no_visible_attachments():
 
 
 def test_header_only_related_message_is_not_marked_as_attached():
-    from routes.email_routes import _parse_email_list_record
+    from routes.email.email_routes import _parse_email_list_record
 
     raw = (
         b"Content-Type: multipart/related; boundary=abc\r\n"
@@ -62,7 +62,7 @@ def test_header_only_related_message_is_not_marked_as_attached():
 
 
 def test_real_attachment_remains_visible_alongside_signature():
-    from routes.email_helpers import _has_visible_attachments
+    from routes.email.email_helpers import _has_visible_attachments
 
     msg = EmailMessage()
     msg.set_content("See attached")
@@ -73,7 +73,7 @@ def test_real_attachment_remains_visible_alongside_signature():
 
 
 def test_remote_search_explicitly_checks_mime_filename_headers():
-    from routes.email_routes import _email_imap_search_criteria
+    from routes.email.email_routes import _email_imap_search_criteria
 
     criteria = _email_imap_search_criteria("report.pdf")
     assert "HEADER Content-Disposition" in criteria
@@ -122,7 +122,7 @@ def test_deferred_attachment_check_shows_feedback_and_repairs_stale_card_icon():
 
 
 def test_attachment_cache_backfill_preserves_message_id(tmp_path, monkeypatch):
-    from routes import email_routes
+    from routes.email import email_routes
 
     db_path = tmp_path / "mail.db"
     conn = sqlite3.connect(db_path)

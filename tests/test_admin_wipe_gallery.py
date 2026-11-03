@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from core.database import Base, GalleryImage, GalleryAlbum
-from routes.admin_wipe_routes import setup_admin_wipe_routes
+from routes.admin_wipe.admin_wipe_routes import setup_admin_wipe_routes
 from fastapi import Request
 
 def test_wipe_gallery_clears_albums(monkeypatch):
@@ -25,12 +25,12 @@ def test_wipe_gallery_clears_albums(monkeypatch):
     assert db.query(GalleryAlbum).count() == 1
     db.close()
     
-    # 4. Patch SessionLocal in routes/admin_wipe_routes.py to use our in-memory DB
-    import routes.admin_wipe_routes
-    monkeypatch.setattr(routes.admin_wipe_routes, "SessionLocal", TestSessionLocal)
+    # 4. Patch SessionLocal in routes/admin_wipe/admin_wipe_routes.py to use our in-memory DB
+    import routes.admin_wipe.admin_wipe_routes
+    monkeypatch.setattr(routes.admin_wipe.admin_wipe_routes, "SessionLocal", TestSessionLocal)
     
     # Mock require_admin to bypass auth check (using standard pytest monkeypatch)
-    monkeypatch.setattr(routes.admin_wipe_routes, "require_admin", lambda r: None)
+    monkeypatch.setattr(routes.admin_wipe.admin_wipe_routes, "require_admin", lambda r: None)
     
     # Construct a real FastAPI Request object
     request = Request(scope={"type": "http"})

@@ -10,7 +10,7 @@ import asyncio
 import pytest
 from starlette.requests import Request
 
-import routes.contacts_routes as cr
+import routes.contacts.contacts_routes as cr
 
 
 def _add_handler():

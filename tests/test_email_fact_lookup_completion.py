@@ -1,7 +1,7 @@
 from email import message_from_string
 
 from mcp_servers.email_server import _extract_text as mcp_extract_text
-from routes.email_helpers import _extract_text as route_extract_text
+from routes.email.email_helpers import _extract_text as route_extract_text
 from src.agent_loop import (
     _email_fact_lookup_requested,
     _email_lookup_needs_post_synthesis,

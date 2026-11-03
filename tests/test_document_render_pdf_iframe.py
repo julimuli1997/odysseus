@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
 import core.database as cdb
-import routes.document_routes as droutes
+import routes.document.document_routes as droutes
 from core.database import Document
 from core.middleware import SecurityHeadersMiddleware
 
@@ -114,7 +114,7 @@ async def test_unrelated_paths_keep_strict_policy():
 
 @pytest.fixture
 def test_db(monkeypatch):
-    """Create a temporary SQLite database and patch routes.document_routes.SessionLocal."""
+    """Create a temporary SQLite database and patch routes.document.document_routes.SessionLocal."""
     import os
     tmpdb = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmpdb.close()

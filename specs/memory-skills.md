@@ -8,7 +8,7 @@ This spec covers persistent memory and user skills in:
 
 - app wiring in `app.py` and `src/app_initializer.py`;
 - active legacy memory managers `src/memory.py` and `src/memory_vector.py`;
-- canonical memory routes in `routes/memory/memory_routes.py`, with `routes/memory_routes.py` as a compatibility shim;
+- canonical memory routes in `routes/memory/memory_routes.py`, with `routes/memory/memory_routes.py` as a compatibility shim;
 - chat memory/skill gating in `routes/chat_helpers.py`;
 - memory compatibility modules in `services/memory/memory.py`, `services/memory/memory_vector.py`, and `services/memory/service.py`;
 - provider abstractions in `src/memory_provider.py`;
@@ -23,7 +23,7 @@ This spec covers persistent memory and user skills in:
 
 ## Memory Runtime
 
-`src.app_initializer.initialize_managers()` creates the active `src.memory.MemoryManager` and `src.memory_vector.MemoryVectorStore` used by app startup. `routes.memory.memory_routes` imports through `services.memory` but is passed the startup manager instances; top-level `routes.memory_routes` is a `sys.modules` compatibility shim.
+`src.app_initializer.initialize_managers()` creates the active `src.memory.MemoryManager` and `src.memory_vector.MemoryVectorStore` used by app startup. `routes.memory.memory_routes` imports through `services.memory` but is passed the startup manager instances; top-level `routes.memory.memory_routes` is a `sys.modules` compatibility shim.
 
 `MemoryManager` owns JSON-backed memory storage in `data/memory.json`, validation, owner fields, pinned state, use counts, and text/keyword similarity. Read-only `load_all()` remains lenient and can degrade an unreadable store to no memories. Mutating read-modify-write paths use `load_all_for_update()`, which raises `MemoryStoreUnreadable` rather than letting a corrupt or unreadable file be overwritten with an empty list. Agent/MCP/native-provider adds, extraction, backup import, and owner migration preserve that distinction; legacy `memory.txt` migration remains allowed. `MemoryVectorStore` owns semantic lookup when Chroma and embeddings are reachable.
 

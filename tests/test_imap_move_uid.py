@@ -16,7 +16,7 @@ import pytest
 def email_helpers(monkeypatch, tmp_path):
     # Keep _init_scheduled_db (run at import) off the real data dir.
     monkeypatch.setenv("ODYSSEUS_DATA_DIR", str(tmp_path))
-    import routes.email_helpers as eh
+    import routes.email.email_helpers as eh
     return eh
 
 

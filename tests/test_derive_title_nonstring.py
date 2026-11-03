@@ -1,4 +1,4 @@
-from routes.document_helpers import _derive_title
+from routes.document.document_helpers import _derive_title
 
 
 def test_derive_title_handles_non_string_content():

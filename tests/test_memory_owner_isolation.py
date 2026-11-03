@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-import routes.memory_routes as memory_routes
+import routes.memory.memory_routes as memory_routes
 from src.memory import MemoryManager
 
 
