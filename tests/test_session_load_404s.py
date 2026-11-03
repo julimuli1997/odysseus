@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from routes import chat_routes
-from routes import research_routes
+from routes.research import research_routes
 
 
 def _route_endpoint(router, path, method="GET"):

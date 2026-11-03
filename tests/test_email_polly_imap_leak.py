@@ -1,6 +1,6 @@
 """Pin the IMAP connection-cleanup guarantee in the background auto-summarize poller.
 
-`_auto_summarize_pass_single` in `routes/email_pollers.py` is invoked on a
+`_auto_summarize_pass_single` in `routes/email/email_pollers.py` is invoked on a
 30-minute background cadence (via `_auto_summarize_poller`) and on-demand
 for one-shot scheduled tasks. It opens a long-lived IMAP connection at
 line 171 (`conn = _imap_connect(...)`) and then performs ~700 lines of
@@ -17,8 +17,8 @@ background poller that runs every 30 minutes, that is a slow but
 unbounded connection leak per crashed pass.
 
 This is the exact same shape as the just-merged upstream fixes #1325
-(`_imap_move` in `routes/email_helpers.py`) and #1330 (`_list_emails_sync`
-in `routes/email_routes.py`), but the request-path fixes did not cover
+(`_imap_move` in `routes/email/email_helpers.py`) and #1330 (`_list_emails_sync`
+in `routes/email/email_routes.py`), but the request-path fixes did not cover
 the *background* poller path — so this is the obvious third instance a
 careful reviewer would ask "did we get all of them?".
 
@@ -42,7 +42,7 @@ from unittest.mock import MagicMock
 
 
 # Point every data-dir-using dependency (core.database, secret_storage,
-# routes.email_helpers, ...) at a per-process tmp dir BEFORE any
+# routes.email.email_helpers, ...) at a per-process tmp dir BEFORE any
 # `from routes...` import runs. Without this the SQLAlchemy engine
 # created at module-import time would try to open `./data/app.db`,
 # which doesn't exist on bare CI machines, and our test would fail
@@ -64,7 +64,7 @@ async def test_auto_summarize_pass_logs_out_imap_on_select_failure(monkeypatch):
     post-connect path is the first un-guarded IMAP call, so forcing
     it to raise lands us in the outer `except` cleanly without any
     of the inner try/except scans swallowing the error first."""
-    import routes.email_pollers as email_pollers
+    import routes.email.email_pollers as email_pollers
 
     captured = {}
 

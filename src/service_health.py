@@ -312,7 +312,7 @@ def email_health(accounts: List[Dict[str, Any]],
     if not accounts:
         return _svc("email", DISABLED, "No email accounts configured.")
     if connect is None:
-        from routes.email_helpers import _imap_connect
+        from routes.email.email_helpers import _imap_connect
         # Impose the service-health budget on the IMAP connect itself.
         connect = lambda aid: _imap_connect(aid, timeout=_PROBE_TIMEOUT)  # noqa: E731
 
@@ -428,7 +428,7 @@ def _gather_inputs() -> Dict[str, Any]:
     except Exception as e:
         logger.debug(f"service_health: integrations load failed: {e}")
     try:
-        from routes.email_helpers import _list_email_accounts
+        from routes.email.email_helpers import _list_email_accounts
         accounts = _list_email_accounts() or []
     except Exception as e:
         logger.debug(f"service_health: email accounts load failed: {e}")

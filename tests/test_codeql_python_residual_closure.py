@@ -414,7 +414,7 @@ def test_single_user_mode_allows_lan_mail_servers(monkeypatch):
 
 @pytest.mark.parametrize("host", ["127.0.0.1", "::1", "localhost"])
 def test_non_admin_cannot_probe_loopback_through_the_connection_test(monkeypatch, host):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     import src.tool_security as tool_security
 
     for key in ("EMAIL_ALLOW_PRIVATE_IPS", "EMAIL_BLOCK_PRIVATE_IPS"):
@@ -443,7 +443,7 @@ def _accounts_test_endpoint(email_routes):
 
 
 def test_connection_test_does_not_block_the_event_loop(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
 
     def _slow_open(host, port, **kwargs):
         time.sleep(1.0)  # a mail server that never answers within the timeout
@@ -484,7 +484,7 @@ def test_connection_test_does_not_block_the_event_loop(monkeypatch):
 
 
 def test_connection_test_keeps_its_authentication_dependency():
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     from routes.email.email_routes import require_user
 
     router = email_routes.setup_email_routes()

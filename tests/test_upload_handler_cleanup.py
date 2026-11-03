@@ -741,9 +741,9 @@ def test_remaining_durable_writers_reserve_before_commit(monkeypatch):
 
 def test_note_calendar_and_document_routes_reserve_before_database_writes(monkeypatch):
     from routes.calendar_routes import EventCreate, setup_calendar_routes
-    from routes import document_routes
-    from routes.document_helpers import DocumentCreate
-    from routes.note_routes import NoteCreate, setup_note_routes
+    from routes.document import document_routes
+    from routes.document.document_helpers import DocumentCreate
+    from routes.note.note_routes import NoteCreate, setup_note_routes
     from src import auth_helpers
 
     upload_id = "d" * 32 + ".png"

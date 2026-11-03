@@ -666,7 +666,7 @@ def setup_task_routes(task_scheduler) -> APIRouter:
 
         import sqlite3
         from pathlib import Path
-        from routes.email_helpers import SCHEDULED_DB, OWNER_SCOPED_EMAIL_CACHE_TABLES, _email_cache_owner_clause
+        from routes.email.email_helpers import SCHEDULED_DB, OWNER_SCOPED_EMAIL_CACHE_TABLES, _email_cache_owner_clause
 
         cleared = {}
         conn = sqlite3.connect(SCHEDULED_DB)

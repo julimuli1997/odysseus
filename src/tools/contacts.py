@@ -30,7 +30,7 @@ async def do_resolve_contact(content: str, owner: Optional[str] = None) -> Dict:
     # cookie and would 401 under require_user.
     try:
         import asyncio
-        from routes import contacts_routes as cc
+        from routes.contacts import contacts_routes as cc
         all_contacts = await asyncio.to_thread(cc._fetch_contacts, False, owner)
         q = name.lower()
         for c in (all_contacts or []):
@@ -89,7 +89,7 @@ async def do_manage_contact(content: str, owner: Optional[str] = None) -> Dict:
         return {"error": "Invalid JSON arguments", "exit_code": 1}
     action = (args.get("action") or "").strip().lower()
     try:
-        from routes import contacts_routes as cc
+        from routes.contacts import contacts_routes as cc
     except Exception as e:
         return {"error": f"Contacts module unavailable: {e}", "exit_code": 1}
     # The contacts helpers are sync (httpx blocking calls to CardDAV) — run

@@ -1,7 +1,7 @@
 """Email: the inbox lists a seeded message, opens it, and marks it read.
 
 Email is the one area with no way to reach a real account deterministically,
-and the repo already solved that: `routes/email_routes.py` carries a
+and the repo already solved that: `routes/email/email_routes.py` carries a
 fixture path gated on `ODYSSEUS_EMAIL_FIXTURE=1` plus a fixture file in
 the data dir. This uses that mechanism rather than inventing a second
 one - which means it also only covers what the fixture covers. Real IMAP
@@ -22,7 +22,7 @@ MARK_READ_PATH = "/api/email/mark-read"
 UNREAD_STATE_PATH = "/api/email/unread-state"
 
 # The filename the fixture path reads. Same value as
-# routes/email_routes.py's `_fixture_email_file`.
+# routes/email/email_routes.py's `_fixture_email_file`.
 FIXTURE_FILENAME = "fixture_email_messages.json"
 
 SUBJECT = "Odysseus smoke inbox message"

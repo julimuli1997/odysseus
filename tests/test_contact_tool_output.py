@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_broad_contact_listing_is_bounded(monkeypatch):
-    import routes.contacts_routes as contacts
+    import routes.contacts.contacts_routes as contacts
     from src.tools.contacts import do_manage_contact
 
     rows = [
@@ -23,7 +23,7 @@ async def test_broad_contact_listing_is_bounded(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_exact_contact_search_is_not_bounded(monkeypatch):
-    import routes.contacts_routes as contacts
+    import routes.contacts.contacts_routes as contacts
     from src.tools.contacts import do_manage_contact
 
     rows = [

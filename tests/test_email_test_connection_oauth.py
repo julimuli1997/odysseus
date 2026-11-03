@@ -1,6 +1,6 @@
 """Tests for Google OAuth2 support in the /api/email/accounts/test endpoint.
 
-Covers the changes made to routes/email_routes.py:
+Covers the changes made to routes/email/email_routes.py:
 
 - test_account_config: OAuth accounts must not require a stored password.
 - IMAP and SMTP test paths must use XOAUTH2 for Google accounts.
@@ -59,7 +59,7 @@ def _make_orm_account(session, account_id="acct-1", owner="alice", **kwargs):
 async def test_test_connection_oauth_account_uses_xoauth2_for_imap_and_smtp():
     """The saved-account test must use XOAUTH2 for both mail protocols."""
     from src.secret_storage import encrypt as _enc
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
 
     future_expiry = str(int(time.time()) + 7200)
     db, Factory = _make_orm_db()
@@ -88,10 +88,10 @@ async def test_test_connection_oauth_account_uses_xoauth2_for_imap_and_smtp():
             return {"account_id": "acct-oauth"}
 
     with mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_routes._open_imap_connection", return_value=mock_imap_conn), \
-         mock.patch("routes.email_routes._PolicySMTP", return_value=mock_smtp_conn), \
-         mock.patch("routes.email_routes._PolicySMTP_SSL", return_value=mock_smtp_conn), \
-         mock.patch("routes.email_routes._get_valid_google_token", return_value="ya29.live") as token_getter:
+         mock.patch("routes.email.email_routes._open_imap_connection", return_value=mock_imap_conn), \
+         mock.patch("routes.email.email_routes._PolicySMTP", return_value=mock_smtp_conn), \
+         mock.patch("routes.email.email_routes._PolicySMTP_SSL", return_value=mock_smtp_conn), \
+         mock.patch("routes.email.email_routes._get_valid_google_token", return_value="ya29.live") as token_getter:
         result = await test_conn(req=_FakeReq(), owner="alice")
 
     assert result["ok"] is True
@@ -112,7 +112,7 @@ async def test_test_connection_oauth_account_uses_xoauth2_for_imap_and_smtp():
 async def test_test_connection_password_account_still_uses_login():
     """Existing password accounts must still go through the login() path."""
     from src.secret_storage import encrypt as _enc
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
 
     db, Factory = _make_orm_db()
     _make_orm_account(
@@ -140,9 +140,9 @@ async def test_test_connection_password_account_still_uses_login():
             return {"account_id": "acct-pw"}
 
     with mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_routes._open_imap_connection", return_value=mock_imap_conn), \
-         mock.patch("routes.email_routes._PolicySMTP", return_value=mock_smtp_conn), \
-         mock.patch("routes.email_routes._PolicySMTP_SSL", return_value=mock_smtp_conn):
+         mock.patch("routes.email.email_routes._open_imap_connection", return_value=mock_imap_conn), \
+         mock.patch("routes.email.email_routes._PolicySMTP", return_value=mock_smtp_conn), \
+         mock.patch("routes.email.email_routes._PolicySMTP_SSL", return_value=mock_smtp_conn):
         result = await test_conn(req=_FakeReq(), owner="alice")
 
     assert result["ok"] is True
@@ -156,7 +156,7 @@ async def test_test_connection_password_account_still_uses_login():
 async def test_test_connection_rejects_non_google_hosts_before_oauth_auth():
     """Saved Google tokens must never be routed to edited custom hosts."""
     from src.secret_storage import encrypt as _enc
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
 
     db, Factory = _make_orm_db()
     _make_orm_account(
@@ -186,10 +186,10 @@ async def test_test_connection_rejects_non_google_hosts_before_oauth_auth():
             }
 
     with mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_routes._open_imap_connection") as open_imap, \
-         mock.patch("routes.email_routes._PolicySMTP") as open_smtp, \
-         mock.patch("routes.email_routes._PolicySMTP_SSL") as open_smtp_ssl, \
-         mock.patch("routes.email_routes._get_valid_google_token") as token_getter:
+         mock.patch("routes.email.email_routes._open_imap_connection") as open_imap, \
+         mock.patch("routes.email.email_routes._PolicySMTP") as open_smtp, \
+         mock.patch("routes.email.email_routes._PolicySMTP_SSL") as open_smtp_ssl, \
+         mock.patch("routes.email.email_routes._get_valid_google_token") as token_getter:
         result = await test_conn(req=_FakeReq(), owner="alice")
 
     assert result["ok"] is False
@@ -205,7 +205,7 @@ async def test_test_connection_rejects_non_google_hosts_before_oauth_auth():
 async def test_test_connection_rejects_insecure_oauth_transports_before_auth():
     """Google OAuth credentials must not be tested over plaintext transports."""
     from src.secret_storage import encrypt as _enc
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
 
     db, Factory = _make_orm_db()
     _make_orm_account(
@@ -237,10 +237,10 @@ async def test_test_connection_rejects_insecure_oauth_transports_before_auth():
             }
 
     with mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_routes._open_imap_connection") as open_imap, \
-         mock.patch("routes.email_routes._PolicySMTP") as open_smtp, \
-         mock.patch("routes.email_routes._PolicySMTP_SSL") as open_smtp_ssl, \
-         mock.patch("routes.email_routes._get_valid_google_token") as token_getter:
+         mock.patch("routes.email.email_routes._open_imap_connection") as open_imap, \
+         mock.patch("routes.email.email_routes._PolicySMTP") as open_smtp, \
+         mock.patch("routes.email.email_routes._PolicySMTP_SSL") as open_smtp_ssl, \
+         mock.patch("routes.email.email_routes._get_valid_google_token") as token_getter:
         result = await test_conn(req=_FakeReq(), owner="alice")
 
     assert result["ok"] is False
@@ -255,7 +255,7 @@ async def test_test_connection_rejects_insecure_oauth_transports_before_auth():
 @pytest.mark.asyncio
 async def test_test_connection_does_not_accept_inline_oauth_state():
     """Only an owner-checked saved account may select the OAuth branch."""
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
 
     router = setup_email_routes()
     test_conn = next(
@@ -273,8 +273,8 @@ async def test_test_connection_does_not_accept_inline_oauth_state():
                 "oauth_access_token": "client-supplied-token",
             }
 
-    with mock.patch("routes.email_routes._open_imap_connection") as open_imap, \
-         mock.patch("routes.email_routes._get_valid_google_token") as token_getter:
+    with mock.patch("routes.email.email_routes._open_imap_connection") as open_imap, \
+         mock.patch("routes.email.email_routes._get_valid_google_token") as token_getter:
         result = await test_conn(req=_FakeReq(), owner="alice")
 
     assert result["ok"] is False
@@ -296,7 +296,7 @@ async def test_test_connection_verifies_imap_tls_before_loading_oauth_token(
     certificate rejection happens before the bearer token is loaded."""
     import ssl
 
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
     from src.secret_storage import encrypt as _enc
 
     db, Factory = _make_orm_db()
@@ -333,16 +333,16 @@ async def test_test_connection_verifies_imap_tls_before_loading_oauth_token(
     )
     with mock.patch("core.database.SessionLocal", Factory), \
          mock.patch(
-             "routes.email_routes.ssl.create_default_context",
+             "routes.email.email_routes.ssl.create_default_context",
              return_value=context,
          ), mock.patch(
-             "routes.email_helpers._PolicyIMAP4",
+             "routes.email.email_helpers._PolicyIMAP4",
              return_value=starttls_conn,
          ) as imap_cls, mock.patch(
-             "routes.email_helpers._PolicyIMAP4_SSL",
+             "routes.email.email_helpers._PolicyIMAP4_SSL",
              side_effect=ssl.SSLCertVerificationError("untrusted certificate"),
          ) as imap_ssl_cls, mock.patch(
-             "routes.email_routes._get_valid_google_token"
+             "routes.email.email_routes._get_valid_google_token"
          ) as token_getter:
         result = await test_conn(req=_FakeReq(), owner="alice")
 
@@ -372,7 +372,7 @@ async def test_test_connection_verifies_smtp_tls_before_loading_oauth_token(
     XOAUTH2 credential is obtained or sent."""
     import ssl
 
-    from routes.email_routes import setup_email_routes
+    from routes.email.email_routes import setup_email_routes
     from src.secret_storage import encrypt as _enc
 
     db, Factory = _make_orm_db()
@@ -409,16 +409,16 @@ async def test_test_connection_verifies_smtp_tls_before_loading_oauth_token(
     )
     with mock.patch("core.database.SessionLocal", Factory), \
          mock.patch(
-             "routes.email_routes.ssl.create_default_context",
+             "routes.email.email_routes.ssl.create_default_context",
              return_value=context,
          ), mock.patch(
-             "routes.email_routes._PolicySMTP",
+             "routes.email.email_routes._PolicySMTP",
              return_value=starttls_smtp,
          ) as smtp_cls, mock.patch(
-             "routes.email_routes._PolicySMTP_SSL",
+             "routes.email.email_routes._PolicySMTP_SSL",
              side_effect=ssl.SSLCertVerificationError("untrusted certificate"),
          ) as smtp_ssl_cls, mock.patch(
-             "routes.email_routes._get_valid_google_token"
+             "routes.email.email_routes._get_valid_google_token"
          ) as token_getter:
         result = await test_conn(req=_FakeReq(), owner="alice")
 

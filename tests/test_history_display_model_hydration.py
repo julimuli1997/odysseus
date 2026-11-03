@@ -600,3 +600,73 @@ async def test_chat_messages_that_look_like_memory_commands_reach_the_model(monk
 
     assert seen == [message]
     assert (tmp_path / "memory.json").read_text() == before
+
+
+def _seed_chats(db_factory, ids, messages=4):
+    db = db_factory()
+    try:
+        start = datetime(2026, 1, 1, 12, 0, 0)
+        for sid in ids:
+            db.add(DbSession(id=sid, name=sid, endpoint_url="http://model.test/v1",
+                             model="test-model", owner="alice", message_count=messages))
+            for index in range(messages):
+                db.add(DbChatMessage(id=f"{sid}-m{index}", session_id=sid, role="user",
+                                     content=f"{sid}-content-{index}",
+                                     timestamp=start + timedelta(seconds=index)))
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_only_the_most_recent_transcripts_stay_in_memory(monkeypatch):
+    """Opening old chats used to keep every transcript in RAM until the chat
+    was deleted, so a long-running server grew toward the whole chat DB."""
+    import core.session_manager as sm
+
+    monkeypatch.setattr(sm, "MAX_HYDRATED_SESSIONS", 2)
+    engine, db_factory = _database()
+    ids = ["chat-a", "chat-b", "chat-c"]
+    _seed_chats(db_factory, ids)
+    manager = _manager(db_factory, monkeypatch)
+    try:
+        held_by_stream = manager.get_session("chat-a")
+        manager.get_session("chat-b")
+        manager.get_session("chat-c")
+
+        # Only the two most recent keep their transcript, but every chat
+        # stays listed.
+        assert set(manager.sessions) == set(ids)
+        assert manager.sessions["chat-a"].history == []
+        assert len(manager.sessions["chat-b"].history) == 4
+        assert len(manager.sessions["chat-c"].history) == 4
+
+        # A stream still holding the evicted object keeps its transcript.
+        assert len(held_by_stream.history) == 4
+
+        # Re-opening reloads the full transcript from the DB.
+        reopened = manager.get_session("chat-a")
+        assert [m.content for m in reopened.history] == [
+            f"chat-a-content-{i}" for i in range(4)
+        ]
+        assert manager.sessions["chat-b"].history == []
+    finally:
+        engine.dispose()
+
+
+def test_message_added_to_an_evicted_chat_is_not_lost(monkeypatch):
+    import core.session_manager as sm
+
+    monkeypatch.setattr(sm, "MAX_HYDRATED_SESSIONS", 1)
+    engine, db_factory = _database()
+    _seed_chats(db_factory, ["chat-a", "chat-b"])
+    manager = _manager(db_factory, monkeypatch)
+    try:
+        manager.get_session("chat-a")
+        manager.get_session("chat-b")  # evicts chat-a's transcript
+        manager.add_message("chat-a", ChatMessage("assistant", "late reply"))
+
+        contents = [m.content for m in manager.get_session("chat-a").history]
+        assert contents[-1] == "late reply"
+        assert len(contents) == 5
+    finally:
+        engine.dispose()

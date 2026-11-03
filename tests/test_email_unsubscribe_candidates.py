@@ -1,6 +1,6 @@
 from email.message import EmailMessage
 
-from routes.email_routes import (
+from routes.email.email_routes import (
     _dedupe_unsubscribe_candidates,
     _email_unsubscribe_candidate_from_msg,
     _parse_list_unsubscribe_header,

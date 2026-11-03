@@ -13,7 +13,7 @@ from core.database import Base, GalleryImage
 
 
 def _gallery_module():
-    import routes.gallery_routes as gallery_routes
+    import routes.gallery.gallery_routes as gallery_routes
     return gallery_routes
 
 

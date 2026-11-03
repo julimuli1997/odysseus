@@ -97,7 +97,7 @@ Current call sites include:
 
 ## Webhooks And External Chat
 
-Outgoing webhooks are admin-managed `Webhook` rows. `routes.webhook_routes` owns CRUD/test/toggle/delete and `/api/v1/chat`. `src.webhook_manager` owns allowed event validation, public URL validation, delivery-time URL revalidation, DNS-rebinding-safe pinned-IP delivery, HMAC signing, fire-and-forget delivery, in-flight task references, and delivery status/error persistence. Sanitized delivery errors redact IPv6-style address details.
+Outgoing webhooks are admin-managed `Webhook` rows. `routes.webhook.webhook_routes` owns CRUD/test/toggle/delete and `/api/v1/chat`. `src.webhook_manager` owns allowed event validation, public URL validation, delivery-time URL revalidation, DNS-rebinding-safe pinned-IP delivery, HMAC signing, fire-and-forget delivery, in-flight task references, and delivery status/error persistence. Sanitized delivery errors redact IPv6-style address details.
 
 Allowed outgoing events are:
 

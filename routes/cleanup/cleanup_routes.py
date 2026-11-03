@@ -1,4 +1,4 @@
-# routes/cleanup_routes.py
+# routes/cleanup/cleanup_routes.py
 """Routes for cleanup operations."""
 import logging
 from fastapi import APIRouter, HTTPException, Request

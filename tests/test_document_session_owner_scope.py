@@ -17,11 +17,11 @@ from tests.helpers.import_state import clear_fake_database_modules
 
 clear_fake_database_modules()
 
-import routes.document_routes as droutes
+import routes.document.document_routes as droutes
 from core.database import Document
 from core.database import Session as DbSession
-from routes.document_helpers import DocumentPatch
-from routes.document_helpers import _owner_session_filter
+from routes.document.document_helpers import DocumentPatch
+from routes.document.document_helpers import _owner_session_filter
 
 
 @pytest.fixture(autouse=True)

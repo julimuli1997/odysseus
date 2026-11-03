@@ -132,13 +132,13 @@ HTTP import is best-effort and section-based. It rejects invalid top-level JSON,
 
 `routes.diagnostics_routes` owns admin diagnostics for DB, RAG, YouTube, research status, aggregate optional service health, and application log tails. The service-health endpoint checks ChromaDB, SearXNG, email accounts, ntfy, and model provider endpoints with bounded probes and redacted output. URL-bearing diagnostics should use log-safety redaction helpers so credentials/query strings do not leak. `/api/diagnostics/logs` reads a bounded tail from `DATA_DIR/logs/app.log`, with missing logs returning an empty result. Diagnostics are operational and must avoid growing into broad secret/environment dumps.
 
-`routes.cleanup_routes` is owner-scoped, not admin-only. It previews and applies session cleanup for the current user through `src.cleanup_service`; when auth is disabled, cleanup can operate as a single-user unscoped flow.
+`routes.cleanup.cleanup_routes` is owner-scoped, not admin-only. It previews and applies session cleanup for the current user through `src.cleanup_service`; when auth is disabled, cleanup can operate as a single-user unscoped flow.
 
-`routes.admin_wipe_routes` owns global per-domain destructive wipe actions. Current kinds include chats, memory, skills, notes, tasks, documents, gallery, and calendar. Server enforcement is admin gate plus kind allowlist. Frontend double confirmation in `static/js/admin.js` is user-interface protection, not server authorization.
+`routes.admin_wipe.admin_wipe_routes` owns global per-domain destructive wipe actions. Current kinds include chats, memory, skills, notes, tasks, documents, gallery, and calendar. Server enforcement is admin gate plus kind allowlist. Frontend double confirmation in `static/js/admin.js` is user-interface protection, not server authorization.
 
 ## Vault
 
-`routes.vault_routes` owns Vaultwarden/Bitwarden CLI config, login, unlock, lock, logout, and `bw_installed` checks.
+`routes.vault.vault_routes` owns Vaultwarden/Bitwarden CLI config, login, unlock, lock, logout, and `bw_installed` checks.
 
 Runtime behavior:
 

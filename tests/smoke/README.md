@@ -67,7 +67,7 @@ message actually reached the provider rather than only that some text
 came back.
 
 Email uses the repo's own deterministic path rather than a second
-mechanism: `routes/email_routes.py` serves a fixture inbox when
+mechanism: `routes/email/email_routes.py` serves a fixture inbox when
 `ODYSSEUS_EMAIL_FIXTURE=1` and a fixture file is in the data dir. The
 suite writes the file and restores whatever was there; the flag is read
 inside the app's process, which is why the runner owns the boot.

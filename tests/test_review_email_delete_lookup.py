@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from routes.email_routes import _resolve_current_email_uid
+from routes.email.email_routes import _resolve_current_email_uid
 
 
 def test_disconnect_is_not_confirmed_absence():

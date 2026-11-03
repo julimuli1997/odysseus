@@ -10,7 +10,7 @@ from src.task_scheduler import TaskScheduler
 @pytest.mark.asyncio
 async def test_mcp_delivery_uses_task_owner_mailbox(monkeypatch):
     calls = []
-    monkeypatch.setattr('routes.email_helpers._get_email_config',
+    monkeypatch.setattr('routes.email.email_helpers._get_email_config',
                         lambda **kwargs: calls.append(kwargs) or {'from_address': 'alice@example.test'})
     manager = SimpleNamespace(call_tool=AsyncMock(return_value={'exit_code': 0, 'stdout': 'Sent email to alice@example.test'}))
     monkeypatch.setattr('src.tool_utils.get_mcp_manager', lambda: manager)
@@ -31,7 +31,7 @@ async def test_mcp_delivery_uses_task_owner_mailbox(monkeypatch):
     None,
 ])
 async def test_mcp_delivery_failure_is_reported(monkeypatch, output):
-    monkeypatch.setattr('routes.email_helpers._get_email_config', lambda **kwargs: {})
+    monkeypatch.setattr('routes.email.email_helpers._get_email_config', lambda **kwargs: {})
     manager = SimpleNamespace(call_tool=AsyncMock(return_value=output))
     monkeypatch.setattr('src.tool_utils.get_mcp_manager', lambda: manager)
     task = SimpleNamespace(id='task', name='Digest', owner='alice@example.test')
@@ -41,7 +41,7 @@ async def test_mcp_delivery_failure_is_reported(monkeypatch, output):
 
 @pytest.mark.asyncio
 async def test_generic_mcp_delivery_reports_text_errors(monkeypatch):
-    monkeypatch.setattr('routes.email_helpers._get_email_config', lambda **kwargs: {})
+    monkeypatch.setattr('routes.email.email_helpers._get_email_config', lambda **kwargs: {})
     manager = SimpleNamespace(call_tool=AsyncMock(return_value={'exit_code': 0, 'stdout': 'Error: delivery failed'}))
     monkeypatch.setattr('src.tool_utils.get_mcp_manager', lambda: manager)
     task = SimpleNamespace(id='task', name='Digest', owner='alice@example.test')

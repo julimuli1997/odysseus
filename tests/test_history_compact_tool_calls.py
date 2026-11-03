@@ -4,7 +4,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 
 from core.models import ChatMessage
-import routes.history_routes as history_routes
+import routes.history.history_routes as history_routes
 import routes.session_routes as session_routes
 
 

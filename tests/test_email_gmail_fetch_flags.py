@@ -10,7 +10,7 @@ its FLAGS and rendered as unread/unflagged in the email library.
 
 import re
 
-from routes.email_routes import _group_uid_fetch_records, _uid_from_fetch_meta
+from routes.email.email_routes import _group_uid_fetch_records, _uid_from_fetch_meta
 
 
 def _flags(meta_b: bytes) -> str:

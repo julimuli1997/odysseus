@@ -71,7 +71,7 @@ def _email_source_key(content: str) -> tuple[str, str]:
     return uid, folder
 
 
-from routes.document_helpers import (
+from routes.document.document_helpers import (
     DocumentCreate, DocumentUpdate, DocumentPatch,
     _doc_to_dict, _version_to_dict,
     _verify_doc_owner, _owner_session_filter,
@@ -1968,8 +1968,8 @@ def setup_document_routes(session_manager, upload_handler=None) -> APIRouter:
             # 3) Fetch the source email's headers so we can build a clean reply
             #    context (To/Subject/In-Reply-To/References).
             try:
-                from routes.email_routes import _imap, _decode_header
-                from routes.email_helpers import _q
+                from routes.email.email_routes import _imap, _decode_header
+                from routes.email.email_helpers import _q
             except Exception:
                 _imap = None
                 _decode_header = lambda x: x or ""

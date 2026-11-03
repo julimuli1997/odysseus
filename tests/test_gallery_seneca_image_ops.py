@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import httpx
 
-import routes.gallery_routes as gallery
+import routes.gallery.gallery_routes as gallery
 
 _IMG_B64 = base64.b64encode(b"abc-not-a-real-png").decode()
 

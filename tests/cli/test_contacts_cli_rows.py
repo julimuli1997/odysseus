@@ -6,11 +6,11 @@ from tests.helpers.cli_loader import load_script
 
 
 def _load_cli(monkeypatch):
-    routes = types.ModuleType("routes.contacts_routes")
+    routes = types.ModuleType("routes.contacts.contacts_routes")
     routes._get_carddav_config = MagicMock()
     routes._fetch_contacts = MagicMock()
     routes._create_contact = MagicMock()
-    monkeypatch.setitem(sys.modules, "routes.contacts_routes", routes)
+    monkeypatch.setitem(sys.modules, "routes.contacts.contacts_routes", routes)
     return load_script("odysseus-contacts")
 
 

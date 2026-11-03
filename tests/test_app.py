@@ -90,7 +90,7 @@ class TestRouteFiles:
     def test_memory_routes_exist(self):
         """Test memory_routes.py exists"""
         routes_path = os.path.dirname(os.path.dirname(__file__))
-        mem_routes = os.path.join(routes_path, "routes", "memory_routes.py")
+        mem_routes = os.path.join(routes_path, "routes", "memory", "memory_routes.py")
         assert os.path.exists(mem_routes), "memory_routes.py should exist"
 
 

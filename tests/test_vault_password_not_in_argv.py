@@ -1,6 +1,6 @@
 """Pin the vault master-password handling so it never regresses into argv.
 
-`routes.vault_routes._run_bw` launches the Bitwarden CLI with
+`routes.vault.vault_routes._run_bw` launches the Bitwarden CLI with
 ``asyncio.create_subprocess_exec(bw_path, *args)`` — every element of ``args``
 becomes a process argument, which is world-readable through ``ps`` /
 ``/proc/<pid>/cmdline``. The master password therefore must be handed to ``bw``
@@ -23,7 +23,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Importing routes.vault_routes pulls in core.middleware → core/__init__ →
+# Importing routes.vault.vault_routes pulls in core.middleware → core/__init__ →
 # session_manager, which explodes under the conftest stubs. Stub the heavy
 # imports the module needs so we can reach the self-contained _run_bw helper.
 if "core.database" not in sys.modules:
@@ -42,7 +42,7 @@ if "core.platform_compat" not in sys.modules:
     _pc.which_tool = MagicMock(return_value="bw")
     sys.modules["core.platform_compat"] = _pc
 
-import routes.vault_routes as vr  # noqa: E402
+import routes.vault.vault_routes as vr  # noqa: E402
 
 
 class _FakeProc:

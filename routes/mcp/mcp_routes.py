@@ -1,4 +1,4 @@
-# routes/mcp_routes.py
+# routes/mcp/mcp_routes.py
 """MCP (Model Context Protocol) server management routes."""
 import json
 import os

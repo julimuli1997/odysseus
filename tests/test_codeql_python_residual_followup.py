@@ -179,7 +179,7 @@ def test_connection_test_keeps_mail_server_auth_responses():
 
 
 def test_account_connection_test_route_applies_policy_to_both_protocols(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
 
     monkeypatch.delenv("EMAIL_BLOCK_PRIVATE_IPS", raising=False)
     router = email_routes.setup_email_routes()
@@ -231,7 +231,7 @@ def test_two_users_same_folder_uid_cannot_overwrite_each_others_attachment(tmp_p
     bob's request rewrote the file whose path alice's agent was about to read.
     """
     import routes.email.email_helpers as helpers
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
 
     monkeypatch.setattr(helpers, "ATTACHMENTS_DIR", tmp_path)
     mailboxes = {

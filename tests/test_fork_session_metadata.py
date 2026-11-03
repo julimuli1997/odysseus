@@ -10,7 +10,7 @@ import asyncio
 from types import SimpleNamespace
 
 from core.models import ChatMessage
-import routes.history_routes as mod
+import routes.history.history_routes as mod
 
 
 class _FakeSession:

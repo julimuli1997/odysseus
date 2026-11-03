@@ -8,7 +8,7 @@ no admin gate), so a non-admin could port-scan loopback, the LAN and the cloud
 metadata range through the server and read the first 200 chars of the banner
 back out of the error message. THREAT_MODEL.md lists email as admin-only.
 
-Policy (see routes/email_routes.py:_check_mail_host): link-local (metadata),
+Policy (see routes/email/email_routes.py:_check_mail_host): link-local (metadata),
 multicast, reserved and unspecified targets are always rejected; loopback and
 private ranges are rejected for non-admin owners or when
 EMAIL_BLOCK_PRIVATE_IPS=true, and stay allowed for admins (local-first: a LAN
@@ -126,7 +126,7 @@ class _Req:
 
 @pytest.mark.asyncio
 async def test_test_connection_rejects_loopback_for_non_admin_before_any_socket(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, False)
     router = email_routes.setup_email_routes()
     test_conn = _route(router, "/api/email/accounts/test", "POST")
@@ -147,7 +147,7 @@ async def test_test_connection_rejects_loopback_for_non_admin_before_any_socket(
 
 @pytest.mark.asyncio
 async def test_test_connection_metadata_ip_rejected_even_for_admin(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, True)
     router = email_routes.setup_email_routes()
     test_conn = _route(router, "/api/email/accounts/test", "POST")
@@ -163,13 +163,13 @@ async def test_test_connection_metadata_ip_rejected_even_for_admin(monkeypatch):
 @pytest.mark.asyncio
 async def test_test_connection_admin_may_use_loopback(monkeypatch):
     """Local-first: an admin's Dovecot on localhost keeps working."""
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, True)
     router = email_routes.setup_email_routes()
     test_conn = _route(router, "/api/email/accounts/test", "POST")
 
     body = {"imap_host": "127.0.0.1", "imap_port": 31143, "imap_user": "x", "imap_password": "x", "imap_starttls": False}
-    with mock.patch("routes.email_routes._open_imap_connection", return_value=mock.MagicMock()) as imap_open:
+    with mock.patch("routes.email.email_routes._open_imap_connection", return_value=mock.MagicMock()) as imap_open:
         result = await test_conn(req=_Req(body), owner="admin")
     assert result["imap"]["ok"] is True
     imap_open.assert_called_once()
@@ -177,7 +177,7 @@ async def test_test_connection_admin_may_use_loopback(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_account_rejects_metadata_host_before_db(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, True)
     router = email_routes.setup_email_routes()
     create = _route(router, "/api/email/accounts", "POST")
@@ -196,7 +196,7 @@ async def test_create_account_rejects_metadata_host_before_db(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_account_rejects_private_host_for_non_admin(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, False)
     router = email_routes.setup_email_routes()
     create = _route(router, "/api/email/accounts", "POST")
@@ -211,7 +211,7 @@ async def test_create_account_rejects_private_host_for_non_admin(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_account_admin_private_host_allowed_unless_locked_down(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, True)
     router = email_routes.setup_email_routes()
     create = _route(router, "/api/email/accounts", "POST")
@@ -230,7 +230,7 @@ async def test_create_account_admin_private_host_allowed_unless_locked_down(monk
 
 @pytest.mark.asyncio
 async def test_update_account_rejects_bad_host_and_keeps_row(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     from core.database import EmailAccount
     _set_admin(monkeypatch, False)
     Factory = _make_orm_db()
@@ -242,7 +242,7 @@ async def test_update_account_rejects_bad_host_and_keeps_row(monkeypatch):
     router = email_routes.setup_email_routes()
     update = _route(router, "/api/email/accounts/{account_id}", "PUT")
     with mock.patch("core.database.SessionLocal", Factory), \
-         mock.patch("routes.email_routes._assert_owns_account", lambda account_id, owner: None):
+         mock.patch("routes.email.email_routes._assert_owns_account", lambda account_id, owner: None):
         result = await update("acct-1", {"imap_host": "127.0.0.1", "imap_port": 8000}, owner="regular-user")
     assert result["ok"] is False
     assert "Rejected IMAP host" in result["error"]
@@ -256,7 +256,7 @@ async def test_update_account_rejects_bad_host_and_keeps_row(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_update_config_rejects_bad_host(monkeypatch):
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, False)
     router = email_routes.setup_email_routes()
     update_cfg = _route(router, "/api/email/config", "PUT")
@@ -265,7 +265,7 @@ async def test_update_config_rejects_bad_host(monkeypatch):
         raise AssertionError("DB must not be touched for a rejected host")
 
     with mock.patch("core.database.SessionLocal", _no_db), \
-         mock.patch("routes.email_routes._load_settings", _no_db):
+         mock.patch("routes.email.email_routes._load_settings", _no_db):
         result = await update_cfg({"smtp_host": "10.0.0.1", "smtp_port": 6379}, account_id=None, owner="regular-user")
     assert result["ok"] is False
     assert "Rejected SMTP host" in result["error"]
@@ -294,7 +294,7 @@ def test_connect_outbound_tcp_multiple_ips_fails_closed():
 @pytest.mark.asyncio
 async def test_test_connection_endpoint_dns_rebinding_blocked(monkeypatch):
     """If DNS changes between save-check and connection, connect-time validation stops it."""
-    import routes.email_routes as email_routes
+    import routes.email.email_routes as email_routes
     _set_admin(monkeypatch, False)
     router = email_routes.setup_email_routes()
     test_conn = _route(router, "/api/email/accounts/test", "POST")
@@ -316,7 +316,7 @@ async def test_test_connection_endpoint_dns_rebinding_blocked(monkeypatch):
 @pytest.mark.asyncio
 async def test_runtime_imap_connect_blocks_preexisting_db_row(monkeypatch):
     """A database row with private host (preexisting, restored, or DB-injected) fails closed at runtime."""
-    import routes.email_helpers as email_helpers
+    import routes.email.email_helpers as email_helpers
     from core.database import EmailAccount
     _set_admin(monkeypatch, False)
     Factory = _make_orm_db()
@@ -333,7 +333,7 @@ async def test_runtime_imap_connect_blocks_preexisting_db_row(monkeypatch):
 
 def test_runtime_send_smtp_message_blocks_metadata_host(monkeypatch):
     """_send_smtp_message fails closed on cloud metadata destination."""
-    import routes.email_helpers as email_helpers
+    import routes.email.email_helpers as email_helpers
     _set_admin(monkeypatch, True)
     cfg = {
         "smtp_host": "169.254.169.254",
@@ -358,7 +358,7 @@ def test_ipv6_loopback_allowed_for_admin_blocked_for_non_admin():
 
 
 def test_email_block_private_ips_env_overrides_admin(monkeypatch):
-    import routes.email_helpers as email_helpers
+    import routes.email.email_helpers as email_helpers
     _set_admin(monkeypatch, True)
     monkeypatch.setenv("EMAIL_BLOCK_PRIVATE_IPS", "true")
     cfg = {
@@ -372,13 +372,13 @@ def test_email_block_private_ips_env_overrides_admin(monkeypatch):
 
 
 def test_tls_sni_preserved_during_safe_connection():
-    import routes.email_helpers as email_helpers
+    import routes.email.email_helpers as email_helpers
     mock_sock = mock.MagicMock()
     mock_ssl_sock = mock.MagicMock()
     mock_ctx = mock.MagicMock()
     mock_ctx.wrap_socket.return_value = mock_ssl_sock
 
-    with mock.patch("routes.email_helpers.connect_outbound_tcp", return_value=mock_sock):
+    with mock.patch("routes.email.email_helpers.connect_outbound_tcp", return_value=mock_sock):
         imap = email_helpers._PolicyIMAP4_SSL.__new__(email_helpers._PolicyIMAP4_SSL)
         imap._block_private = False
         imap.host = "imap.secure.example.com"
@@ -390,7 +390,7 @@ def test_tls_sni_preserved_during_safe_connection():
 
     mock_smtp_sock = mock.MagicMock()
     mock_ctx.wrap_socket.return_value = mock_smtp_sock
-    with mock.patch("routes.email_helpers.connect_outbound_tcp", return_value=mock_sock):
+    with mock.patch("routes.email.email_helpers.connect_outbound_tcp", return_value=mock_sock):
         smtp = email_helpers._PolicySMTP_SSL.__new__(email_helpers._PolicySMTP_SSL)
         smtp._block_private = False
         smtp._host = "smtp.secure.example.com"
@@ -407,7 +407,7 @@ def test_tls_sni_preserved_during_safe_connection():
 @pytest.mark.parametrize("is_admin", [False, True])
 @pytest.mark.parametrize("answer", ["error", "empty", "garbage", "none"])
 async def test_save_rejects_unresolved_hosts_before_persistence(monkeypatch, route_name, field, is_admin, answer):
-    import routes.email_routes as routes
+    import routes.email.email_routes as routes
     import src.url_safety as safety
 
     _set_admin(monkeypatch, is_admin)
@@ -493,7 +493,7 @@ assert original == (imaplib.IMAP4, imaplib.IMAP4_SSL, smtplib.SMTP, smtplib.SMTP
 @pytest.mark.parametrize("route_name", ["create", "update", "config"])
 async def test_save_host_resolution_runs_off_the_event_loop(monkeypatch, route_name):
     import threading
-    import routes.email_routes as routes
+    import routes.email.email_routes as routes
 
     event_loop_thread = threading.get_ident()
     def guard(*args):

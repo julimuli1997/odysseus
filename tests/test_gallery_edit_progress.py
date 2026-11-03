@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import httpx
 
-import routes.gallery_routes as gallery
+import routes.gallery.gallery_routes as gallery
 
 
 def _route(path):

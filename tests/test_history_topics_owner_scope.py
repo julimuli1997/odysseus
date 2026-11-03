@@ -2,7 +2,7 @@
 Round-4 / Finding A3.1 validator.
 
 Claim under test:
-    /api/conversations/topics (routes/history_routes.py:478-485) forwards
+    /api/conversations/topics (routes/history/history_routes.py:478-485) forwards
     `owner=get_current_user(request)` to `analyze_topics`, and
     `analyze_topics` in src/topic_analyzer.py:21-85 SKIPS the owner
     filter when `owner` is falsy. Combined with the
@@ -162,7 +162,7 @@ def _build_app_with_loopback_bypass(session_manager):
     treats as 'no filter' and returns cross-tenant topics.
     """
     from fastapi import FastAPI
-    from routes.history_routes import setup_history_routes
+    from routes.history.history_routes import setup_history_routes
 
     app = FastAPI()
     app.include_router(setup_history_routes(session_manager))

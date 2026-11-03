@@ -58,12 +58,12 @@ from src.auth_helpers import (
     require_chat_api_token_scope,
 )
 from routes.session_routes import _verify_session_owner
-from routes.document_helpers import _owner_session_filter
+from routes.document.document_helpers import _owner_session_filter
 from core.database import SessionLocal, get_session_mode, set_session_mode
 from core.database import Session as DBSession, ChatMessage as DBChatMessage, Note
 from core.database import Document as DBDocument, ModelEndpoint
 from core.log_safety import redact_url
-from routes.research_routes import _resolve_research_endpoint
+from routes.research.research_routes import _resolve_research_endpoint
 from routes.model_routes import _visible_models
 from routes.chat_helpers import (
     resolve_session_auth,
@@ -2732,7 +2732,7 @@ def setup_chat_routes(
             # block can quote them. Best-effort: a stale cache is fine, a
             # missing email just means we pass uid/folder/account only.
             try:
-                from routes.email_routes import _read_cache_get, _read_cache_key
+                from routes.email.email_routes import _read_cache_get, _read_cache_key
                 _ck = _read_cache_key(active_email_account or None, active_email_folder, active_email_uid, owner=get_current_user(request))
                 _cached_email = _read_cache_get(_ck)
                 if _cached_email and isinstance(_cached_email, dict):

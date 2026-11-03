@@ -6,7 +6,7 @@ from tests.helpers.db_stubs import make_core_db_stub
 
 
 def _load_mail_cli(monkeypatch):
-    helpers = ModuleType("routes.email_helpers")
+    helpers = ModuleType("routes.email.email_helpers")
     helpers._imap = object
     helpers._get_email_config = lambda account=None: {}
     helpers._decode_header = lambda value: value
@@ -14,12 +14,12 @@ def _load_mail_cli(monkeypatch):
     helpers._extract_html = lambda msg: ""
     helpers._list_attachments_from_msg = lambda msg: []
 
-    pollers = ModuleType("routes.email_pollers")
+    pollers = ModuleType("routes.email.email_pollers")
     pollers._scheduled_poll_once = lambda: {}
     pollers._run_auto_summarize_once = lambda **kwargs: ""
 
-    monkeypatch.setitem(sys.modules, "routes.email_helpers", helpers)
-    monkeypatch.setitem(sys.modules, "routes.email_pollers", pollers)
+    monkeypatch.setitem(sys.modules, "routes.email.email_helpers", helpers)
+    monkeypatch.setitem(sys.modules, "routes.email.email_pollers", pollers)
     make_core_db_stub(
         monkeypatch,
         attributes={"SessionLocal": object, "EmailAccount": object},

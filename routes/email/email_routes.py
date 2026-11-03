@@ -5,8 +5,8 @@ FastAPI route handlers for the email feature. All non-route logic
 (IMAP connection helpers, message parsing, account config, the
 auto-summarize + scheduled-email pollers, Pydantic models) lives in:
 
-    routes/email_helpers.py   — synchronous helpers + models + constants
-    routes/email_pollers.py   — background loops, started by `_start_poller`
+    routes/email/email_helpers.py   — synchronous helpers + models + constants
+    routes/email/email_pollers.py   — background loops, started by `_start_poller`
 
 Importing from the helpers module brings in everything those route
 handlers need. The split is mechanical — no behavior change.
@@ -7830,8 +7830,11 @@ def setup_email_routes():
         from fastapi.responses import RedirectResponse as _RR
         return _RR(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
 
+    # Plain def: the token exchange and userinfo calls below are blocking
+    # httpx requests (up to 10s each), so FastAPI must run this in its
+    # threadpool instead of on the event loop.
     @router.get("/oauth/google/callback")
-    async def google_oauth_callback(
+    def google_oauth_callback(
         code: str = Query(None),
         state: str = Query(None),
         error: str = Query(None),
@@ -7848,6 +7851,16 @@ def setup_email_routes():
             return _RR("/?section=integrations&email_oauth_error=invalid_state")
         account_id = state_data.get("a", "")
         owner = state_data.get("o", "")
+        # The browser finishing the flow must belong to the user who started
+        # it. Otherwise A can send B a consent link carrying A's signed state,
+        # and B's approval stores B's Gmail tokens on A's account.
+        try:
+            caller = require_user(request)
+        except HTTPException:
+            caller = None
+        if caller is None or caller != owner:
+            logger.warning("OAuth callback finished by a different user than started it")
+            return _RR("/?section=integrations&email_oauth_error=ownership_error")
         client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
         client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
         redirect_uri = (

@@ -1,4 +1,4 @@
-import routes.gallery_routes as gallery_routes
+import routes.gallery.gallery_routes as gallery_routes
 
 
 class _TorchSentinel:
