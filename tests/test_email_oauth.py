@@ -942,7 +942,7 @@ async def test_callback_finished_by_another_user_does_not_write_tokens():
     logged in to Odysseus as himself and approves with his Google account.
     His mailbox tokens must not land on Alice's account, and the auth code
     must not even be exchanged."""
-    from routes.email_helpers import make_oauth_state
+    from routes.email.email_helpers import make_oauth_state
     from core.database import EmailAccount
 
     db, Factory = _make_db()
