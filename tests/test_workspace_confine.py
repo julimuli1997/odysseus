@@ -659,3 +659,28 @@ def test_persisted_session_workspace_does_not_override_request_result(monkeypatc
         current_rejected="/bad/request",
     ) == ("", "/bad/request")
     assert calls == []
+
+
+def test_local_machine_rules_only_when_request_names_a_machine(monkeypatch):
+    import src.agent_loop as al
+
+    monkeypatch.setattr(al, "get_setting", lambda key, default=None: default, raising=False)
+    monkeypatch.setattr(al, "get_mcp_manager", lambda: None, raising=False)
+    monkeypatch.setattr(al, "blocked_tools_for_owner", lambda owner: set(), raising=False)
+
+    def system_text(prompt):
+        al._cached_base_prompt = None
+        al._cached_base_prompt_key = None
+        messages, _ = al._build_system_prompt(
+            messages=[{"role": "user", "content": prompt}],
+            model="gpt-test",
+            active_document=None,
+            mcp_mgr=None,
+            relevant_tools={"manage_calendar", "bash", "ask_user"},
+        )
+        return "\n\n".join(m.get("content", "") for m in messages if m.get("role") == "system")
+
+    calendar = system_text("What's on my calendar tomorrow?")
+    assert "local-machine mode" not in calendar
+    assert "Do not execute downloaded files" in calendar
+    assert "local-machine mode" in system_text("How much disk space is free on this computer?")

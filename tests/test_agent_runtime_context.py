@@ -1317,3 +1317,39 @@ def test_model_request_includes_workspace_agents_md_context(tmp_path, monkeypatc
     assert "Source: AGENTS.md" in visible_text
     assert str(agents) in visible_text
     assert "Run focused tests before final status." in visible_text
+
+
+def _sent_tools_for_window(monkeypatch, runtime_context):
+    _patch_fake_skills(monkeypatch)
+    requests = []
+
+    async def _fake_stream(_candidates, messages, **kwargs):
+        requests.append(kwargs.get("tools") or [])
+        yield f"data: {json.dumps({'delta': 'done'})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    monkeypatch.setattr(al, "stream_llm_with_fallback", _fake_stream, raising=False)
+    _collect(
+        al.stream_agent_loop(
+            "https://api.openai.com/v1",
+            "gpt-4o",
+            [{"role": "user", "content": "Read README.md with read_file."}],
+            max_rounds=1,
+            relevant_tools={"bash", "read_file"},
+            owner="admin",
+            client_runtime_context=runtime_context,
+        )
+    )
+    return requests[0]
+
+
+def test_small_context_window_defaults_to_compact_tool_schemas(monkeypatch):
+    tools = _sent_tools_for_window(monkeypatch, {"model_context_window": 8192})
+    assert tools
+    assert all("description" not in schema["function"] for schema in tools)
+
+
+def test_large_context_window_keeps_full_tool_schemas(monkeypatch):
+    tools = _sent_tools_for_window(monkeypatch, {"model_context_window": 131072})
+    assert tools
+    assert any("description" in schema["function"] for schema in tools)

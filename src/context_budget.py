@@ -16,6 +16,9 @@ exactly (clamped to the window). Pure and side-effect free so it is unit-testabl
 DEFAULT_HARD_MAX = 200_000
 DEFAULT_BUDGET = 6000
 DEFAULT_HEADROOM = 0.85
+# Routes at or below this window default to the compact tool surface: the full
+# schema set alone (~30K tokens) cannot fit, and messages trim without counting tools.
+SMALL_CONTEXT_WINDOW = 16384
 
 
 def _int_or_zero(value) -> int:
