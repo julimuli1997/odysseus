@@ -26,6 +26,7 @@ not booted; outbound HTTP is mocked and the DB is an isolated in-memory SQLite.
 """
 
 import base64
+import inspect
 import json
 import time
 import unittest.mock as mock
@@ -278,9 +279,10 @@ class _FakeRequest:
     middleware rewrites the scheme from `X-Forwarded-Proto`, so the route sees
     `https` there and `http` on a plain origin."""
 
-    def __init__(self, scheme="http", host="localhost:7000"):
+    def __init__(self, scheme="http", host="localhost:7000", user="alice"):
         self.headers = {"host": host}
         self.url = SimpleNamespace(scheme=scheme)
+        self.state = SimpleNamespace(current_user=user)
 
 
 def _location(resp):
@@ -358,7 +360,7 @@ async def test_callback_owner_mismatch_does_not_write_tokens():
          mock.patch("httpx.get", return_value=userinfo_resp), \
          mock.patch("core.database.SessionLocal", Factory):
         callback = _callback_endpoint()
-        resp = await callback(code="4/code", state=state, error=None, request=_FakeRequest())
+        resp = await callback(code="4/code", state=state, error=None, request=_FakeRequest(user="bob"))
 
     loc = _location(resp)
     assert "email_oauth_error=ownership_error" in loc
@@ -916,3 +918,40 @@ async def test_config_response_does_not_expose_oauth_storage_fields():
     assert "oauth_token_expiry" not in result
     assert encrypted_access not in json.dumps(result)
     assert encrypted_refresh not in json.dumps(result)
+
+
+@pytest.mark.asyncio
+async def test_callback_finished_by_another_user_does_not_write_tokens():
+    """Alice starts "connect Gmail" and sends Bob the consent link. Bob is
+    logged in to Odysseus as himself and approves with his Google account.
+    His mailbox tokens must not land on Alice's account, and the auth code
+    must not even be exchanged."""
+    from routes.email_helpers import make_oauth_state
+    from core.database import EmailAccount
+
+    db, Factory = _make_db()
+    _make_account(db, account_id="acct-alice", owner="alice", imap_user="", smtp_user="")
+    db.close()
+
+    state = make_oauth_state("acct-alice", "alice")
+    # Google would answer normally: Bob really approved with his mailbox.
+    token_resp = mock.MagicMock()
+    token_resp.json.return_value = {"access_token": "ya29.bob", "refresh_token": "1//bob", "expires_in": 3600}
+    userinfo_resp = mock.MagicMock(is_success=True)
+    userinfo_resp.json.return_value = {"email": "bob@gmail.com", "name": "Bob"}
+
+    with mock.patch("httpx.post", return_value=token_resp) as post, \
+         mock.patch("httpx.get", return_value=userinfo_resp) as get, \
+         mock.patch("core.database.SessionLocal", Factory):
+        result = _callback_endpoint()(
+            code="4/bobs-code", state=state, error=None, request=_FakeRequest(user="bob"),
+        )
+        resp = await result if inspect.isawaitable(result) else result
+
+    assert "email_oauth_error=ownership_error" in _location(resp)
+    post.assert_not_called()
+    get.assert_not_called()
+    verify_db = Factory()
+    row = verify_db.query(EmailAccount).filter(EmailAccount.id == "acct-alice").first()
+    verify_db.close()
+    assert row.oauth_access_token is None

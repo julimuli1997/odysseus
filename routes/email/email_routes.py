@@ -7848,6 +7848,16 @@ def setup_email_routes():
             return _RR("/?section=integrations&email_oauth_error=invalid_state")
         account_id = state_data.get("a", "")
         owner = state_data.get("o", "")
+        # The browser finishing the flow must belong to the user who started
+        # it. Otherwise A can send B a consent link carrying A's signed state,
+        # and B's approval stores B's Gmail tokens on A's account.
+        try:
+            caller = require_user(request)
+        except HTTPException:
+            caller = None
+        if caller is None or caller != owner:
+            logger.warning("OAuth callback finished by a different user than started it")
+            return _RR("/?section=integrations&email_oauth_error=ownership_error")
         client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
         client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
         redirect_uri = (
