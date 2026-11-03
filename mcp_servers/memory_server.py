@@ -179,12 +179,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         category = arguments.get("category", "fact")
         if not text:
             return _text_result("Error: Memory text cannot be empty")
-        owner, memories, _visible, scope_error = _scope_entries(for_update=True)
-        if scope_error:
-            return _text_result(scope_error)
-        entry = _memory_manager.add_entry(text, source="ai_agent", category=category, owner=owner)
-        memories.append(entry)
-        _memory_manager.save(memories)
+        with _memory_manager.transaction():
+            owner, memories, _visible, scope_error = _scope_entries(for_update=True)
+            if scope_error:
+                return _text_result(scope_error)
+            entry = _memory_manager.add_entry(text, source="ai_agent", category=category, owner=owner)
+            memories.append(entry)
+            _memory_manager.save(memories)
         if _memory_vector and _memory_vector.healthy:
             try:
                 _memory_vector.add(entry["id"], text)
@@ -197,22 +198,23 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         new_text = arguments.get("text", "")
         if not memory_id or not new_text:
             return _text_result("Error: edit needs memory_id and text")
-        _owner, memories, visible, scope_error = _scope_entries()
-        if scope_error:
-            return _text_result(scope_error)
-        full_id = None
-        for m in visible:
-            if m.get("id", "").startswith(memory_id):
-                full_id = m["id"]
-                break
-        if not full_id:
-            return _text_result(f"Error: Memory '{memory_id}' not found")
-        for m in memories:
-            if m.get("id") == full_id:
-                m["text"] = new_text
-                m["timestamp"] = int(time.time())
-                break
-        _memory_manager.save(memories)
+        with _memory_manager.transaction():
+            _owner, memories, visible, scope_error = _scope_entries(for_update=True)
+            if scope_error:
+                return _text_result(scope_error)
+            full_id = None
+            for m in visible:
+                if m.get("id", "").startswith(memory_id):
+                    full_id = m["id"]
+                    break
+            if not full_id:
+                return _text_result(f"Error: Memory '{memory_id}' not found")
+            for m in memories:
+                if m.get("id") == full_id:
+                    m["text"] = new_text
+                    m["timestamp"] = int(time.time())
+                    break
+            _memory_manager.save(memories)
         if _memory_vector and _memory_vector.healthy and full_id:
             try:
                 _memory_vector.remove(full_id)
@@ -225,22 +227,23 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         memory_id = arguments.get("memory_id", "")
         if not memory_id:
             return _text_result("Error: delete needs memory_id")
-        _owner, memories, visible, scope_error = _scope_entries()
-        if scope_error:
-            return _text_result(scope_error)
-        full_id = None
-        deleted_text = ""
-        deleted_category = ""
-        for m in visible:
-            if m.get("id", "").startswith(memory_id):
-                full_id = m["id"]
-                deleted_text = m.get("text", "")
-                deleted_category = m.get("category", "")
-                break
-        if not full_id:
-            return _text_result(f"Error: Memory '{memory_id}' not found")
-        memories = [m for m in memories if m.get("id") != full_id]
-        _memory_manager.save(memories)
+        with _memory_manager.transaction():
+            _owner, memories, visible, scope_error = _scope_entries(for_update=True)
+            if scope_error:
+                return _text_result(scope_error)
+            full_id = None
+            deleted_text = ""
+            deleted_category = ""
+            for m in visible:
+                if m.get("id", "").startswith(memory_id):
+                    full_id = m["id"]
+                    deleted_text = m.get("text", "")
+                    deleted_category = m.get("category", "")
+                    break
+            if not full_id:
+                return _text_result(f"Error: Memory '{memory_id}' not found")
+            memories = [m for m in memories if m.get("id") != full_id]
+            _memory_manager.save(memories)
         if _memory_vector and _memory_vector.healthy and full_id:
             try:
                 _memory_vector.remove(full_id)

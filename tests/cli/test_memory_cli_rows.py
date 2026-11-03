@@ -8,6 +8,7 @@ from tests.helpers.cli_loader import load_script
 def _load_cli(monkeypatch):
     svc = types.ModuleType("services.memory.memory")
     svc.MemoryManager = MagicMock()
+    svc.MemoryStoreUnreadable = type("MemoryStoreUnreadable", (RuntimeError,), {})
     monkeypatch.setitem(sys.modules, "services.memory.memory", svc)
     return load_script("odysseus-memory")
 
