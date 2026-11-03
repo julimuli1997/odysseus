@@ -13,6 +13,7 @@ into place. On POSIX `os.replace` is atomic on the same filesystem.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import uuid
@@ -23,6 +24,51 @@ from typing import Any, Optional
 
 _STORE_LOCKS: dict[str, threading.RLock] = {}
 _STORE_LOCKS_GUARD = threading.Lock()
+# Lock paths the current thread already holds. flock() locks belong to an open
+# file description, so re-locking through a second handle from the same thread
+# would wait on itself forever; nested entries must reuse the outer hold.
+_HELD = threading.local()
+
+
+@contextlib.contextmanager
+def store_lock(store_path):
+    """Hold an exclusive lock on ``store_path`` across threads and processes.
+
+    Reentrant within one thread, so a locked read/modify/write may call other
+    helpers that lock the same store.
+    """
+    path = os.path.abspath(str(store_path)) + ".lock"
+    held = getattr(_HELD, "paths", None)
+    if held is None:
+        held = _HELD.paths = set()
+    if path in held:
+        yield
+        return
+    with _STORE_LOCKS_GUARD:
+        lock = _STORE_LOCKS.setdefault(path, threading.RLock())
+    with lock:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a+b") as handle:
+            if os.name == "nt":
+                import msvcrt
+                if os.fstat(handle.fileno()).st_size == 0:
+                    handle.write(b"0")
+                    handle.flush()
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            held.add(path)
+            try:
+                yield
+            finally:
+                held.discard(path)
+                if os.name == "nt":
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def store_transaction(path_factory):
@@ -30,30 +76,8 @@ def store_transaction(path_factory):
     def decorate(function):
         @functools.wraps(function)
         def locked(*args, **kwargs):
-            path = os.path.abspath(str(path_factory())) + ".lock"
-            with _STORE_LOCKS_GUARD:
-                lock = _STORE_LOCKS.setdefault(path, threading.RLock())
-            with lock:
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, "a+b") as handle:
-                    if os.name == "nt":
-                        import msvcrt
-                        if os.fstat(handle.fileno()).st_size == 0:
-                            handle.write(b"0")
-                            handle.flush()
-                        handle.seek(0)
-                        msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
-                    else:
-                        import fcntl
-                        fcntl.flock(handle, fcntl.LOCK_EX)
-                    try:
-                        return function(*args, **kwargs)
-                    finally:
-                        if os.name == "nt":
-                            handle.seek(0)
-                            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-                        else:
-                            fcntl.flock(handle, fcntl.LOCK_UN)
+            with store_lock(path_factory()):
+                return function(*args, **kwargs)
         return locked
     return decorate
 

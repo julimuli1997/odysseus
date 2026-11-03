@@ -10,6 +10,7 @@ dropped when it was merely semantically similar to user A's memory. The text
 dedup fallback right below is already owner-scoped; the vector path must be too.
 """
 import asyncio
+import contextlib
 import importlib.util
 import sys
 import types
@@ -89,6 +90,9 @@ class FakeMemoryManager:
 
     def save(self, rows):
         self.rows = list(rows)
+
+    def transaction(self):
+        return contextlib.nullcontext()
 
 
 class FakeVector:

@@ -8,6 +8,8 @@ import re
 from typing import List, Dict, Tuple
 from datetime import datetime
 
+from core.atomic_io import atomic_write_text, store_lock
+
 logger = logging.getLogger(__name__)
 
 
@@ -195,22 +197,23 @@ class MemoryManager:
 
     def claim_ownerless(self, owner: str):
         """Assign all ownerless memory entries to the given owner."""
-        try:
-            entries = self.load_all_for_update()
-        except MemoryStoreUnreadable as e:
-            # Skip the sweep rather than rewrite the store from an unknown view.
-            logger.error("Skipping ownerless claim, memory store unreadable: %s", e)
-            return
-        changed = False
-        claimed = 0
-        for entry in entries:
-            if not entry.get("owner"):
-                entry["owner"] = owner
-                changed = True
-                claimed += 1
-        if changed:
-            self.save(entries)
-            logger.info("Claimed %d ownerless memories for %s", claimed, owner)
+        with self.transaction():
+            try:
+                entries = self.load_all_for_update()
+            except MemoryStoreUnreadable as e:
+                # Skip the sweep rather than rewrite the store from an unknown view.
+                logger.error("Skipping ownerless claim, memory store unreadable: %s", e)
+                return
+            changed = False
+            claimed = 0
+            for entry in entries:
+                if not entry.get("owner"):
+                    entry["owner"] = owner
+                    changed = True
+                    claimed += 1
+            if changed:
+                self.save(entries)
+                logger.info("Claimed %d ownerless memories for %s", claimed, owner)
     
     def _validate_entries(self, entries: List[Dict]) -> List[Dict]:
         """Ensure all entries have required fields."""
@@ -271,11 +274,17 @@ class MemoryManager:
             if "category" not in entry:
                 entry["category"] = "fact"
         
-        # Use atomic write
-        tmp_file = self.memory_file + ".tmp"
-        with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump(entries, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_file, self.memory_file)
+        with self.transaction():
+            atomic_write_text(self.memory_file, json.dumps(entries, ensure_ascii=False, indent=2))
+
+    def transaction(self):
+        """Lock memory.json for a load_all_for_update() -> change -> save() cycle.
+
+        Without it, two writers (chat turns, the extractor, routes, the memory
+        MCP server process) each save the copy they loaded and the later save
+        silently drops the earlier one's change.
+        """
+        return store_lock(self.memory_file)
     
     def add_entry(self, text: str, source: str = "user", category: str = "fact", owner: str = None) -> Dict:
         """Add a new memory entry."""
@@ -300,19 +309,20 @@ class MemoryManager:
         if not ids:
             return
         id_set = set(ids)
-        try:
-            entries = self.load_all_for_update()
-        except MemoryStoreUnreadable as e:
-            # Best-effort counter; never worth rewriting the store blind.
-            logger.error("Skipping uses bump, memory store unreadable: %s", e)
-            return
-        changed = False
-        for e in entries:
-            if e.get("id") in id_set:
-                e["uses"] = int(e.get("uses", 0) or 0) + 1
-                changed = True
-        if changed:
-            self.save(entries)
+        with self.transaction():
+            try:
+                entries = self.load_all_for_update()
+            except MemoryStoreUnreadable as e:
+                # Best-effort counter; never worth rewriting the store blind.
+                logger.error("Skipping uses bump, memory store unreadable: %s", e)
+                return
+            changed = False
+            for e in entries:
+                if e.get("id") in id_set:
+                    e["uses"] = int(e.get("uses", 0) or 0) + 1
+                    changed = True
+            if changed:
+                self.save(entries)
     
     def find_duplicates(self, text: str, entries: List[Dict] = None) -> List[Dict]:
         """Find duplicate memory entries based on text content."""
