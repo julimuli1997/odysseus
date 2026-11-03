@@ -345,8 +345,9 @@ if AUTH_ENABLED:
     _token_cache_dirty = True
 
     def _token_cache_invalidate():
-        nonlocal_dict = app.state.__dict__
-        nonlocal_dict["_token_cache_dirty"] = True
+        # Through State.__setattr__: writing app.state.__dict__ made a shadow
+        # attribute that read True forever, so every bearer request rebuilt.
+        app.state._token_cache_dirty = True
     app.state.invalidate_token_cache = _token_cache_invalidate
     app.state._token_cache = _token_cache
     app.state._token_cache_dirty = True
@@ -355,6 +356,10 @@ if AUTH_ENABLED:
         """Rebuild the prefix→[(id,hash)] map from the DB."""
         global _token_cache
         from collections import defaultdict
+        # Clear the flag before reading: a revoke that commits while this
+        # query runs sets it again, so the next request rebuilds instead of
+        # trusting a map that still holds the revoked token.
+        app.state._token_cache_dirty = False
         new_map = defaultdict(list)
         db = SessionLocal()
         try:
@@ -370,11 +375,13 @@ if AUTH_ENABLED:
                     continue
                 scopes = [s.strip() for s in (getattr(r, "scopes", "") or "chat").split(",") if s.strip()]
                 new_map[r.token_prefix].append((r.id, r.token_hash, owner_key, scopes))
+        except Exception:
+            app.state._token_cache_dirty = True
+            raise
         finally:
             db.close()
         _token_cache = dict(new_map)
         app.state._token_cache = _token_cache
-        app.state._token_cache_dirty = False
 
     # Headers that prove a request was forwarded by a proxy/tunnel (cloudflared,
     # nginx, Caddy, Tailscale Funnel, …). cloudflared connects to the app FROM

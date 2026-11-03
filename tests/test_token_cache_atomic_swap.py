@@ -231,3 +231,54 @@ class TestRefreshLeavesTheReadersMapAlone:
 
         assert app_module.app.state._token_cache is app_module._token_cache
         assert "ody_two" in app_module.app.state._token_cache
+
+
+class TestInvalidationDuringRefresh:
+    """A revoke that commits while a refresh is reading must not be lost."""
+
+    def test_invalidation_during_query_keeps_cache_dirty(self, app_module):
+        revoked = _row("ody_gone", "t-revoked")
+
+        def query_then_revoke():
+            # The refresh has read the row; the admin's delete commits and
+            # invalidates before the refresh finishes.
+            app_module.app.state.invalidate_token_cache()
+            return [revoked]
+
+        query = app_module.SessionLocal.return_value.query.return_value.filter.return_value
+        query.all.side_effect = query_then_revoke
+        app_module.app.state._token_cache_dirty = True
+
+        app_module._refresh_token_cache()
+
+        assert app_module.app.state._token_cache_dirty is True
+
+        # The next request rebuilds from the post-delete table.
+        query.all.side_effect = None
+        query.all.return_value = []
+        app_module._refresh_token_cache()
+        assert "ody_gone" not in app_module._token_cache
+        assert app_module.app.state._token_cache_dirty is False
+
+    def test_failed_refresh_stays_dirty(self, app_module):
+        query = app_module.SessionLocal.return_value.query.return_value.filter.return_value
+        query.all.side_effect = RuntimeError("db locked")
+        app_module.app.state._token_cache_dirty = True
+
+        with pytest.raises(RuntimeError):
+            app_module._refresh_token_cache()
+
+        assert app_module.app.state._token_cache_dirty is True
+
+
+def test_cache_is_used_again_after_an_invalidation(app_module):
+    """invalidate_token_cache used to write app.state.__dict__ directly. On a
+    Starlette State that creates a shadow attribute which reads True forever,
+    so after the first token change every bearer request rebuilt the cache."""
+    _seed(app_module, [_row("ody_keep")])
+    app_module.app.state.invalidate_token_cache()
+    assert app_module.app.state._token_cache_dirty is True
+
+    app_module._refresh_token_cache()
+
+    assert app_module.app.state._token_cache_dirty is False
